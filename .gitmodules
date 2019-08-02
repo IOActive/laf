@@ -1,0 +1,3 @@
+[submodule "tools/lorawan/Loracrack"]
+	path = tools/lorawan/Loracrack
+	url = https://github.com/matiassequeira/Loracrack

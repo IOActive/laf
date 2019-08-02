@@ -1,0 +1,44 @@
+version: '3.0'
+
+services:
+  tools:
+    build: .
+    volumes:
+      - .:/app
+    environment:
+      DB_HOST: db
+      DB_NAME: loraguard_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_PORT: 5432
+      ENVIRONMENT: DEV
+    networks:
+      - app
+  db:
+    image: postgres:10.1-alpine
+    restart: always
+    environment:
+        POSTGRES_DB: loraguard_db
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"  
+    volumes:
+      - data:/var/lib/postgresql/iotsecurity
+    networks:
+      - app
+  pgadmin4:    
+    image: dpage/pgadmin4
+    environment:
+      - "PGADMIN_DEFAULT_EMAIL=pgadmin"
+      - "PGADMIN_DEFAULT_PASSWORD=pgadmin"
+    ports:
+      - "5001:80"
+    networks:
+      - app 
+volumes:
+  data:
+
+networks:
+  app:
+    driver: "bridge"

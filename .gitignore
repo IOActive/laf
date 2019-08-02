@@ -1,0 +1,4 @@
+.DS_Store
+lorawanwrapper/utils/lorawanWrapper.h
+lorawanwrapper/utils/lorawanWrapper.so
+*.pyc

@@ -109,7 +109,7 @@ def bruteForce(packet):
 
             result = LorawanWrapper.testAppKeysWithJoinAccept(keys_array, packet.data, True)
         except Exception as es:
-            logging.error("Error trying to bforce JA:", es)
+            logging.error("Error trying to bforce JA: {0}".format(es))
 
         if result != "":
 

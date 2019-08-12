@@ -578,7 +578,7 @@ Currently we don't support other frequency bands but, with few changes to these 
 
 ## Presentation slides
 
-You can also see the [presentation slides](https://github.com/IOActive/laf/doc/LorawanAuditingFramework.pdf), where we describe a little bit the LoRaWAN technology, present the current state of the art of the security in LoRaWAN, and comment about the functions of the framework and its architecture. 
+You can also see the [presentation slides](./doc/LorawanAuditingFramework.pdf), where we describe a little bit the LoRaWAN technology, present the current state of the art of the security in LoRaWAN, and comment about the functions of the framework and its architecture. 
 
 ## Demo video
 

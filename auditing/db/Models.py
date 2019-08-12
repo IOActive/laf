@@ -465,8 +465,8 @@ class PotentialAppKey(Base):
         session.flush()
 
     @classmethod
-    def find_all_by_organization_id_after_datetime(cls, organization_id, datetime):
-        return session.query(cls).filter(cls.organization_id == organization_id, cls.last_seen > datetime).order_by(desc(cls.last_seen)).all()
+    def find_all_by_organization_id_after_datetime(cls, organization_id, since):
+        return session.query(cls).filter(cls.organization_id == organization_id, cls.last_seen > since).order_by(desc(cls.last_seen)).all()
 
 class RowProcessed(Base):
     __tablename__ = 'row_processed'

@@ -13,7 +13,7 @@ class AlertType(Base):
     name = Column(String(120), nullable=False)
     message = Column(String(4096), nullable=True) 
     risk = Column(String(20), nullable=False)
-    description= Column(String(300), nullable= False)
+    description= Column(String(3000), nullable= False)
 
     @classmethod
     def count(cls):
@@ -435,6 +435,7 @@ class DeviceAuthData(Base):
     created_at = Column(DateTime(timezone=True), nullable=False)
     join_accept_packet_id = Column(BigIntegerType, ForeignKey("packet.id"), nullable=True)
     join_request_packet_id = Column(BigIntegerType, ForeignKey("packet.id"), nullable=True)
+    app_key_hex = Column(String(32), nullable=True)
 
     def save(self):
         session.add(self)

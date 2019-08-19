@@ -119,6 +119,7 @@ def bruteForce(packet):
             for potential_key_obj in organization_keys:
                 if potential_key_obj.app_key_hex == result:
                     device_auth_obj = DeviceAuthData.find_one_by_id(potential_key_obj.device_auth_data_id)
+                    break
 
             # Get DevAddr from JA packet
             dev_addr = LorawanWrapper.getDevAddr(result, packet.data)
@@ -147,11 +148,12 @@ def bruteForce(packet):
             device_auth_obj.device_session_id = dev_ses_obj.id
             device_auth_obj.join_accept = packet.data
             device_auth_obj.join_accept_packet_id = packet.id
+            device_auth_obj.app_key_hex = result
             
             # Add session keys
             device_auth_obj= deriveSessionKeys(device_auth_obj, result)
 
-            # Get the device in order to get dev_eui
+            # Get the device to get dev_eui
             device_obj= Device.find_one(device_auth_obj.device_id)
 
             parameters={}

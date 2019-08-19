@@ -63,7 +63,7 @@ We provide different options to have your LoraWAN Auditing Framework up and runn
 
 These instructions will get you a copy of the project and its dependencies in your local machine. Commands below are for a Debian based environment:
 
-1. Clone this repository: `git clone https://github.com/emfayo/laf.git`
+1. Clone this repository: `git clone --recurse-submodules https://github.com/IOActive/laf.git`
 2. Install python3:
 	1. `sudo apt-get update`
 	2. `sudo apt-get install python3.6`
@@ -113,7 +113,7 @@ Containers:
 
 Steps:
 1. Clone this repository: 
-        `git clone https://github.com/emfayo/laf.git`
+        `git clone https://github.com/IOActive/laf.git`
 2. Go to `cd laf/`
 2. Start containers:
 	`docker-compose up --build`

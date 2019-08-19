@@ -105,9 +105,9 @@ def listener(client):
                     standardPacket['gateway'] = gateway
 
                     if gateway in gateways_location:
-                        standardPacket['latitude']= gateways_location[gateway]['lati']
-                        standardPacket['longitude']= gateways_location[gateway]['long']
-                        standardPacket['altitude']= gateways_location[gateway]['alti']
+                        standardPacket['latitude']= gateways_location[gateway]['latitude']
+                        standardPacket['longitude']= gateways_location[gateway]['longitude']
+                        standardPacket['altitude']= gateways_location[gateway]['altitude']
                 
                 standardPacket['date'] = datetime.datetime.now().__str__() 
                 standardPacket['data_collector_id'] = client.data_collector_id

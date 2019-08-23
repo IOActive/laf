@@ -576,13 +576,9 @@ At least in the US915 frequency band, the first 8 channels are the most used. Bu
 
 Currently we don't support other frequency bands but, with few changes to these scripts you'd be able to do this on your own :).
 
-## Presentation slides
-
-You can also see the [presentation slides](./doc/LorawanAuditingFramework.pdf), where we describe a little bit the LoRaWAN technology, present the current state of the art of the security in LoRaWAN, and comment about the functions of the framework and its architecture. 
-
 ## Demo video
 
-We uploaded a video of this framework in action (the same scenario presented at [BlackHat 2019](https://www.blackhat.com/us-19/arsenal/schedule/index.html#lorawan-auditing-framework-16986)): <https://youtu.be/Mm6A2RVNoCs>. Detailed steps of the demo are in the Youtube video  description.
+We uploaded a video of this framework in action (same scenario presented at [BlackHat 2019](https://www.blackhat.com/us-19/arsenal/schedule/index.html#lorawan-auditing-framework-16986)): <https://youtu.be/Mm6A2RVNoCs>. Detailed steps of the demo are in the Youtube video  description.
 
 ## Authors
 

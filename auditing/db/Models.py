@@ -306,7 +306,7 @@ class DeviceSession(Base):
     def find_one_by_dev_addr_and_datacollector_id(cls, dev_addr, data_collector_id):
         query = session.query(cls).filter(cls.dev_addr == dev_addr)
        
-        query = query.filter(cls.id == DataCollectorToDeviceSession.device_session_id).filter(DataCollectorToDeviceSession.data_collector_id == data_collector_id)
+        query = query.join(DataCollectorToDeviceSession).filter(DataCollectorToDeviceSession.data_collector_id == data_collector_id)
 
         return query.first()
 
@@ -412,7 +412,8 @@ class Packet(Base):
 
     @classmethod
     def find_previous_by_data_collector_and_dev_eui(cls, date, data_collector_id, dev_eui = None):
-    	return session.query(Packet).filter(Packet.date < date).filter(Packet.data_collector_id == data_collector_id).filter(Packet.dev_eui == dev_eui).order_by(desc(Packet.date)).first()
+    	previous_date = session.query(func.max(Packet.date)).filter(Packet.date < date).filter(Packet.data_collector_id == data_collector_id).filter(Packet.dev_eui == dev_eui).scalar()
+        return session.query(Packet).filter(Packet.date == previous_date).filter(Packet.data_collector_id == data_collector_id).filter(Packet.dev_eui == dev_eui).first()
 
     @classmethod
     def rows_quantity(cls):

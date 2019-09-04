@@ -16,20 +16,27 @@ else:
     logging.getLogger().setLevel(logging.INFO)
 
 def processData():
-    analyzer_row = RowProcessed.find_one_by_analyzer("packet_analyzer")
-    bruteforcer_row = RowProcessed.find_one_by_analyzer("bruteforcer")
-    if bruteforce and analyze:
-        first_pending_id = min(analyzer_row.last_row ,bruteforcer_row.last_row) + 1 
-    elif bruteforce:
-        first_pending_id= bruteforcer_row.last_row+1
-    elif analyze:
-        first_pending_id= analyzer_row.last_row+1
-    else:
-        first_pending_id = 0
+    # Save the packet ids that have to be processed by the selected modules
+    starting_rows = list() 
+  
+    if analyze:
+        analyzer_row = RowProcessed.find_one_by_analyzer("packet_analyzer")
+        starting_rows.append(analyzer_row.last_row)
 
+    if bruteforce:
+        bruteforcer_row = RowProcessed.find_one_by_analyzer("bruteforcer")
+        starting_rows.append(bruteforcer_row.last_row)
+        
+    # Get the lowest packet ID to be processed 
+    first_pending_id=starting_rows[0]
+    for row in starting_rows:
+        if row < first_pending_id:
+            first_pending_id = row
 
-    # Find out which is the first packet to start from
-    start_packet_id = None
+    # Jump to the next to be procesed
+    first_pending_id += 1
+    
+    # If the user provided the start id, do some checksstart_packet_id = None
     if options.from_id is not None:
         start_packet_id = options.from_id
         if start_packet_id > first_pending_id:

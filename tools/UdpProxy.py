@@ -1,10 +1,9 @@
-# LoRaWAN Security Framework - udpProxy
+# LoRaWAN Security Framework - UdpProxy
 # Copyright (c) 2019 IOActive Inc.  All rights reserved.
 
 import sys, socket, logging, threading, re, argparse
 from utils.Fuzzer import fuzz
 import utils.FileLogger as fileLoggin
-import lorawanwrapper.LorawanWrapper  as LorawanWrapper
 
 logger = logging.getLogger()
 handler = logging.StreamHandler()
@@ -100,6 +99,9 @@ def setConsoleOptions():
     logIntoConsole = not options.no_log
     global parsePHYPayload
     parsePHYPayload = not options.no_parse
+
+    if parsePHYPayload:
+        import lorawanwrapper.LorawanWrapper  as LorawanWrapper
 
     global collector_address
     if options.collector_port:

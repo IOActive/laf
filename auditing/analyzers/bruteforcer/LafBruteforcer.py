@@ -82,7 +82,7 @@ def bruteForce(packet):
             for hex_key in candidate_keys_array:
                 try:
                     potential_key_obj = PotentialAppKey(
-                        app_key_hex = hex_key,
+                        app_key_hex = hex_key.upper(),
                         organization_id = packet.organization_id,
                         last_seen= packet.date,
                         packet_id= packet.id,
@@ -98,6 +98,10 @@ def bruteForce(packet):
 
         try:
             organization_keys= PotentialAppKey.find_all_by_organization_id_after_datetime(packet.organization_id, last_seconds_date)
+
+            # Return if no JR keys were found
+            if len(organization_keys) == 0:
+                return 
 
             keys_array= list()
             for pk in organization_keys:
@@ -117,9 +121,13 @@ def bruteForce(packet):
             result = result.rstrip().upper()
             
             for potential_key_obj in organization_keys:
-                if potential_key_obj.app_key_hex == result:
+                if potential_key_obj.app_key_hex.upper() == result:
                     device_auth_obj = DeviceAuthData.find_one_by_id(potential_key_obj.device_auth_data_id)
                     break
+            
+            if device_auth_obj is None:
+                logging.error("Cracked a JoinAccept but no device_auth object found")
+                return
 
             # Get DevAddr from JA packet
             dev_addr = LorawanWrapper.getDevAddr(result, packet.data)

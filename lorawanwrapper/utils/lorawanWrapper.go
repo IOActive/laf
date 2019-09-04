@@ -260,6 +260,33 @@ func testAppKeysWithJoinRequest(appKeysPointer **C.char, keysLen C.int, joinRequ
 		return C.CString(found_keys)
 	}
 
+	// Form possible keys using AppEUI+JoinEUI / JoinEUI/AppEUI combination
+	jrPL, ok := phy.MACPayload.(*JoinRequestPayload)
+	if !ok {
+		fmt.Println("MACPayload must be a *JoinRequestPayload")
+		return C.CString("Error")
+	}
+
+	// Create array of capacity 10
+	joinEUI, _ := jrPL.JoinEUI.MarshalText()
+	devEUI, _ := jrPL.DevEUI.MarshalText()
+	vendorsKeys := [][]byte{append(joinEUI, devEUI...), append(devEUI, joinEUI...)}
+
+	for _, vendorKey := range vendorsKeys {
+		if err := key.UnmarshalText(vendorKey); err != nil {
+			log.Error("Unmarshall error with AppKey: ", vendorKey, err)
+		}
+
+		result, err := testAppKeyWithJoinRequest(key, phy, &testCounter)
+		if err != nil {
+			log.Error("Error with JoinRequest :", err)
+			return C.CString(found_keys)
+		} else if len(result) > 0 {
+			found_keys += result + " "
+		}
+	}
+
+	// Test keys given in keys file
 	length := int(keysLen)
 	tmpslice := (*[1 << 30]*C.char)(unsafe.Pointer(appKeysPointer))[:length:length]
 	for _, s := range tmpslice {

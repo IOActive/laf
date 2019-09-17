@@ -271,6 +271,10 @@ class DeviceSession(Base):
         else:
             self.total_down_link_packets += 1
 
+    def setLastPacketId(self, uplink, id):
+        if uplink:
+            self.last_packet_id = id
+
     def save(self):
         session.add(self)
         session.flush()
@@ -412,7 +416,7 @@ class Packet(Base):
 
     @classmethod
     def find_previous_by_data_collector_and_dev_eui(cls, date, data_collector_id, dev_eui = None):
-    	previous_date = session.query(func.max(Packet.date)).filter(Packet.date < date).filter(Packet.data_collector_id == data_collector_id).filter(Packet.dev_eui == dev_eui).scalar()
+        previous_date = session.query(func.max(Packet.date)).filter(Packet.date < date).filter(Packet.data_collector_id == data_collector_id).filter(Packet.dev_eui == dev_eui).scalar()
         return session.query(Packet).filter(Packet.date == previous_date).filter(Packet.data_collector_id == data_collector_id).filter(Packet.dev_eui == dev_eui).first()
 
     @classmethod

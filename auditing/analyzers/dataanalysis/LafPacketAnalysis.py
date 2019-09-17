@@ -1,4 +1,4 @@
-import re, datetime, os, sys, base64, json, logging
+import re, datetime, os, sys, base64, json, logging, math
 from auditing.db.Models import DevNonce, Gateway, Device, DeviceSession, GatewayToDevice, DataCollectorToDevice, GatewayToDeviceSession, DataCollectorToDeviceSession, Alert, Packet
 from auditing.analyzers.utils import ReportAlert
 
@@ -375,45 +375,61 @@ def processPacket(packet):
         
         # Set the last packet id received for this device
         dev_ses_obj.last_packet_id = packet.id
-            
+
+# The haversine formula determines the great-circle distance between two points on a sphere given their longitudes and latitudes.
+def measure(lat1, lon1, lat2, lon2):
+  R = 6378.137 #Radius of earth in KM
+  dLat = lat2 * math.pi / 180 - lat1 * math.pi / 180
+  dLon = lon2 * math.pi / 180 - lon1 * math.pi / 180
+  a = math.sin(dLat/2) * math.sin(dLat/2) + math.cos(lat1 * math.pi / 180) * math.cos(lat2 * math.pi / 180) * math.sin(dLon/2) * math.sin(dLon/2)
+  c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+  d = R * c
+  return d * 1000 #meters
 
 def updateLocation(gateway, packet):
 
+    # This value can be changed for more/less accuracy
+    location_accuracy = 20.0
+
     if packet.latitude is None or packet.longitude is None:
-        pass
-    
+        return
     else:
         lati = packet.latitude
         long = packet.longitude
 
-        if gateway.location_latitude is not None or gateway.location_longitude is not None:
-            
-            # A fourth decimal's precision (0,0001) is near 11.132 m
-            if abs(gateway.location_latitude - lati) > 0.0001 or abs(gateway.location_longitude - long) > 0.001:
+    if gateway.location_latitude is None or gateway.location_longitude is None:
+        gateway.location_latitude = lati
+        gateway.location_longitude = long
+
+    else:
+
+        if measure(gateway.location_latitude, gateway.location_longitude, lati, long) > location_accuracy:
+                    
+            parameters={}
+            parameters["gw_hex_id"]= gateway.gw_hex_id
+            parameters["location_latitude"]= gateway.location_latitude
+            parameters["location_longitude"]= gateway.location_longitude
+            parameters["lati"]= lati
+            parameters["long"]= long
+
+            try:
+                alert= Alert(
+                    type = "LAF-010",
+                    created_at = datetime.datetime.now(),
+                    packet_id = packet.id,
+                    gateway_id = gateway.id,
+                    parameters= json.dumps(parameters),
+                    data_collector_id= packet.data_collector_id
+                )
+                alert.save()
                 
-                parameters={}
-                parameters["gw_hex_id"]= gateway.gw_hex_id
-                parameters["location_latitude"]= gateway.location_latitude
-                parameters["location_longitude"]= gateway.location_longitude
-                parameters["new_location_latitude"]= lati
-                parameters["new_location_longitude"]= long
+            except Exception as exc:
+                logging.error("Error trying to save Alert LAF-010: {0}".format(exc))
 
-                try:
-                    alert= Alert(
-                        type = "LAF-010",
-                        created_at = datetime.datetime.now(),
-                        packet_id = packet.id,
-                        gateway_id = gateway.id,
-                        parameters= json.dumps(parameters),
-                        data_collector_id= packet.data_collector_id
-                    )
-                    alert.save()
-                except Exception as exc:
-                    logging.error("Error trying to save Alert LAF-010: {0}".format(exc))
+            ReportAlert.print_alert(alert)
 
-                ReportAlert.print_alert(alert)
 
-            gateway.location_latitude = lati
-            gateway.location_longitude = long
+        gateway.location_latitude = lati
+        gateway.location_longitude = long
 
     return gateway

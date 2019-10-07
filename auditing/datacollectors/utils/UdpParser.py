@@ -1,3 +1,6 @@
+import re
+import lorawanwrapper.LorawanWrapper as LorawanWrapper 
+
 def formatData(data):
     result = ""
     
@@ -7,6 +10,6 @@ def formatData(data):
     else:
         search = re.search('(.*)"data":"(.*?)"(.*)', data)
         if search is not None: #means that a PHYPayload was received
-            result = "\nParsed data: %s"%(LorawanWrapper.printPHYPayload(search.group(2),None))
+            result = "Parsed data: %s\n"%(LorawanWrapper.printPHYPayload(search.group(2),None))
     
     return result

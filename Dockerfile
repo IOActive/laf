@@ -25,7 +25,7 @@ RUN ln -s /usr/bin/python3 /usr/bin/python
 
 # Compile go library
 WORKDIR /root/app/lorawanwrapper/utils
-RUN go build -o lorawanWrapper.so -buildmode=c-shared jsonUnmarshaler.go lorawanWrapper.go micGenerator.go sessionKeysGenerator.go
+RUN go build -o lorawanWrapper.so -buildmode=c-shared *.go
 
 WORKDIR /root/app
 CMD sleep infinity

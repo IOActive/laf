@@ -81,7 +81,7 @@ These instructions will get you a copy of the project and its dependencies in yo
     1. `go get github.com/tidwall/sjson && go get github.com/tidwall/gjson && go get github.com/matiassequeira/lorawan && go get github.com/pkg/errors && go get github.com/sirupsen/logrus`
 7. Compile go library:
     1. `cd laf/lorawanwrapper/utils`
-    2. `go build -o lorawanWrapper.so -buildmode=c-shared jsonUnmarshaler.go lorawanWrapper.go micGenerator.go sessionKeysGenerator.go`
+    2. `go build -o lorawanWrapper.so -buildmode=c-shared jsonUnmarshaler.go lorawanWrapper.go micGenerator.go sessionKeysGenerator.go hashGenerator.go`
 8. Depending on which DB you'd like to use:
 
     a. PostreSQL: Follow instructions 'Install LAF using Docker' until 3rd step.

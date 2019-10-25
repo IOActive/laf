@@ -80,14 +80,18 @@ class DataCollector(Base):
     data_collector_type_id = Column(BigIntegerType, ForeignKey("data_collector_type.id"), nullable=False)
     name = Column(String(120), nullable=False)
     organization_id = Column(BigIntegerType, ForeignKey("organization.id"), nullable=True)
-    ip = Column(String(120), nullable=False)
-    port = Column(String(120), nullable=False)
+    ip = Column(String(120), nullable=True)
+    port = Column(String(120), nullable=True)
     user = Column(String(120), nullable=True)
     password = Column(LargeBinary, nullable=True)
 
     @classmethod
     def find_one_by_ip_port_and_dctype_id(cls, dctype_id, ip, port):
         return session.query(cls).filter(cls.ip == ip).filter(cls.data_collector_type_id == dctype_id).filter(cls.port == port).first()
+
+    @classmethod
+    def find_one_by_type_and_user_and_password_and_gateway_id(cls, dctype_id, user, password, id):
+        return session.query(cls).filter(cls.user == user).filter(cls.data_collector_type_id == dctype_id).filter(cls.password == password).filter(cls.name == id).first()
     
     @classmethod
     def find_one_by_name_and_dctype_id(cls, dctype_id, name):

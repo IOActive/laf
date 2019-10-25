@@ -225,7 +225,7 @@ if __name__ == '__main__':
     print ("Copyright (c) 2019 IOActive Inc.  All rights reserved.")
     print ("*****************************************************\n")
 
-    parser = argparse.ArgumentParser(description='This script connects to a loraserver.io mqqt broker and saves messages into the DB. You must specify a unique collectorID and you can specify the topics you want to suscribe to.')
+    parser = argparse.ArgumentParser(description='This script connects to a loraserver.io mqqt broker and saves messages into the DB.')
 
     requiredGroup = parser.add_argument_group('Required arguments')
     
@@ -236,9 +236,9 @@ if __name__ == '__main__':
                         default= 1883,
                         type=int) 
     parser.add_argument('--collector-id',
-                                help = 'The ID of the dataCollector. This ID will be associated to the packets saved into DB. eg. --id 1')
+                                help = 'The ID of the dataCollector. This ID will be associated to the packets saved into DB.')
     parser.add_argument('--organization-id',
-                            help = 'The ID of the dataCollector. This ID will be associated to the packets saved into DB. eg. --id 1',
+                            help = 'The ID of the organization. This ID will be associated to the packets saved into DB.',
                             default= None)
     parser.add_argument('--topics',
                         nargs = '+',

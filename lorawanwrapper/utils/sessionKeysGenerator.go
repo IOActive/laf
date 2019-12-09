@@ -5,21 +5,18 @@ package main
 import "C"
 
 import (
-	"fmt"
 	"crypto/aes"
-	"github.com/pkg/errors"
+	"fmt"
+
 	"github.com/matiassequeira/lorawan"
+	"github.com/pkg/errors"
 )
 
-// getFNwkSIntKey returns the FNwkSIntKey.
 // For LoRaWAN 1.0: SNwkSIntKey = NwkSEncKey = FNwkSIntKey = NwkSKey
+
+// getFNwkSIntKey returns the FNwkSIntKey.
 func getFNwkSIntKey(optNeg bool, nwkKey lorawan.AES128Key, netID lorawan.NetID, joinEUI lorawan.EUI64, joinNonce lorawan.JoinNonce, devNonce lorawan.DevNonce) (lorawan.AES128Key, error) {
 	return getSKey(optNeg, 0x01, nwkKey, netID, joinEUI, joinNonce, devNonce)
-}
-
-// getAppSKey returns appSKey.
-func getAppSKey(optNeg bool, nwkKey lorawan.AES128Key, netID lorawan.NetID, joinEUI lorawan.EUI64, joinNonce lorawan.JoinNonce, devNonce lorawan.DevNonce) (lorawan.AES128Key, error) {
-	return getSKey(optNeg, 0x02, nwkKey, netID, joinEUI, joinNonce, devNonce)
 }
 
 // getSNwkSIntKey returns the NwkSIntKey.
@@ -30,6 +27,11 @@ func getSNwkSIntKey(optNeg bool, nwkKey lorawan.AES128Key, netID lorawan.NetID, 
 // getNwkSEncKey returns the NwkSEncKey.
 func getNwkSEncKey(optNeg bool, nwkKey lorawan.AES128Key, netID lorawan.NetID, joinEUI lorawan.EUI64, joinNonce lorawan.JoinNonce, devNonce lorawan.DevNonce) (lorawan.AES128Key, error) {
 	return getSKey(optNeg, 0x04, nwkKey, netID, joinEUI, joinNonce, devNonce)
+}
+
+// getAppSKey returns appSKey.
+func getAppSKey(optNeg bool, nwkKey lorawan.AES128Key, netID lorawan.NetID, joinEUI lorawan.EUI64, joinNonce lorawan.JoinNonce, devNonce lorawan.DevNonce) (lorawan.AES128Key, error) {
+	return getSKey(optNeg, 0x02, nwkKey, netID, joinEUI, joinNonce, devNonce)
 }
 
 // getJSIntKey returns the JSIntKey.

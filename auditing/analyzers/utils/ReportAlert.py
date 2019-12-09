@@ -14,14 +14,16 @@ def print_alert(alert):
 
         dict_parameters= json.loads(alert.parameters)
 
+        collector= DataCollector.find_one(alert.data_collector_id)
+        if collector:
+            message= message.replace('{'+'collector.name'+'}', collector.name+' (ID '+str(collector.id)+')')
+        else:
+            message= message.replace('{'+'collector.name'+'}', str(alert.data_collector_id ))
+
         for param_name, param_value in dict_parameters.items():
             message= message.replace('{'+param_name+'}', str(param_value))
 
         message= message.replace('{'+'packet_id'+'}', str(alert.packet_id))
-
-        collector= DataCollector.find_one(alert.data_collector_id)
-        if collector:
-            message= message.replace('{'+'collector.name'+'}', collector.name+' (ID '+str(collector.id)+')')
     
     except Exception as e:
         logging.error('Error printing alert: {0}'.format(e))

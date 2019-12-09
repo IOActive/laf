@@ -262,51 +262,53 @@ def processPacket(packet):
             # Check counter
             if packet.f_count == 0:
 
-                if device_obj is not None:
-
-                    if device_obj.has_joined:
-                        # The counter = 0  is valid, then change the has_joined flag
-                        device_obj.has_joined = False
-
-                    elif device_obj.join_inferred:
-                        # The counter = 0  is valid, then change the join_inferred flag
-                        device_obj.join_inferred = False
-
-                    elif dev_ses_obj.last_packet_id is not None:
-
-                        parameters= {}
-                        parameters["dev_addr"]= dev_ses_obj.dev_addr
-                        parameters["counter"]= dev_ses_obj.getCounter(is_uplink_packet)
-                        parameters["new_counter"]= packet.f_count
-                        parameters["prev_packet_id"]= dev_ses_obj.last_packet_id
+                if dev_ses_obj.id in last_uplink_mic: # Make sure we have processed at least one packet for this device in this run before firing the alarm
                         
-                        try:
-                            alert= Alert(
-                                type = "LAF-006",
-                                created_at = datetime.datetime.now(),
-                                packet_id = packet.id,
-                                device_session_id = dev_ses_obj.id,
-                                parameters= json.dumps(parameters),
-                                data_collector_id= packet.data_collector_id
-                            )
-                            alert.save()
-                        except Exception as exc:
-                            logging.error("Error trying to save Alert LAF-006: {0}".format(exc))
+                    # Skip if received the same counter as previous packet and mics are equal
+                    if not (packet.f_count == dev_ses_obj.getCounter(is_uplink_packet) and last_uplink_mic[dev_ses_obj.id] == packet.mic): 
                         
-                        ReportAlert.print_alert(alert)
+                        if device_obj is not None and device_obj.has_joined:
+                            # The counter = 0  is valid, then change the has_joined flag
+                            device_obj.has_joined = False
 
-                        if not device_obj.is_otaa:
-                            dev_ses_obj.may_be_abp = True
+                        elif device_obj is not None and device_obj.join_inferred:
+                            # The counter = 0  is valid, then change the join_inferred flag
+                            device_obj.join_inferred = False
+                        
                         else:
-                            logging.warning("Warning! The device is marked as OTAA but reset counter without having joined. Packet id %d"%(packet.id))
-                
-                dev_ses_obj.reset_counter += 1
+                            parameters= {}
+                            parameters["dev_addr"]= dev_ses_obj.dev_addr
+                            parameters["counter"]= dev_ses_obj.getCounter(is_uplink_packet)
+                            parameters["new_counter"]= packet.f_count
+                            parameters["prev_packet_id"]= dev_ses_obj.last_packet_id
+                            
+                            try:
+                                alert= Alert(
+                                    type = "LAF-006",
+                                    created_at = datetime.datetime.now(),
+                                    packet_id = packet.id,
+                                    device_session_id = dev_ses_obj.id,
+                                    parameters= json.dumps(parameters),
+                                    data_collector_id= packet.data_collector_id
+                                )
+                                alert.save()
+                            except Exception as exc:
+                                logging.error("Error trying to save Alert LAF-006: {0}".format(exc))
+                            
+                            ReportAlert.print_alert(alert)
 
+                            if device_obj is not None and not device_obj.is_otaa:
+                                dev_ses_obj.may_be_abp = True
+                            else:
+                                logging.warning("Warning! The device is marked as OTAA but reset counter without having joined. Packet id %d"%(packet.id))
+
+                        dev_ses_obj.reset_counter += 1
+            
             elif packet.f_count <= dev_ses_obj.getCounter(is_uplink_packet):
                 
                 if dev_ses_obj.id in last_uplink_mic: # Make sure we have processed at least one packet for this device in this run before firing the alarm
                     
-                    # Skip if the received the same counter as previous packet and mics are equal
+                    # Skip if received the same counter as previous packet and mics are equal
                     if not (packet.f_count == dev_ses_obj.getCounter(is_uplink_packet) and last_uplink_mic[dev_ses_obj.id] == packet.mic): 
                         parameters= {}
                         parameters["dev_addr"]= dev_ses_obj.dev_addr
@@ -374,7 +376,7 @@ def processPacket(packet):
             dev_ses_obj.device_id = device_obj.id
         
         # Set the last packet id received for this device
-        dev_ses_obj.last_packet_id = packet.id
+        dev_ses_obj.setLastPacketId(is_uplink_packet, packet.id)
 
 # The haversine formula determines the great-circle distance between two points on a sphere given their longitudes and latitudes.
 def measure(lat1, lon1, lat2, lon2):

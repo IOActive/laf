@@ -147,8 +147,11 @@ def init():
 
         if options.no_gen is True:
             print ("- Keys won't be generated dinamically by bruteforcer")
+
+        if options.hours>0:
+            print ("- Will wait {0} hours between bruteforces for each device".format(options.hours))
         
-        LafBruteforcer.init(keysPath, options.no_gen)
+        LafBruteforcer.init(keysPath, options.no_gen, options.hours)
     else:
         if options.keys is not None or options.no_gen is not None:
             print ("Bruteforce module OFF - Won't accept its suboptions")
@@ -193,6 +196,11 @@ if __name__ == '__main__':
                             help = "[Bruteforcer] Don't generate keys, only try keys from files",
                             action = 'store_true',
                             default = None
+                            )
+        parser.add_argument("--hours",
+                            help = "[Bruteforcer] Hours between bruteforcing for each device. By default, there's no delay between bruteforcing.",
+                            default = 0,
+                            type = int
                             )
         parser.add_argument("-p", "--parse",
                             help= 'Parse the PHYPayload into readable information',

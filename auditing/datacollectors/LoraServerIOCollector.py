@@ -15,8 +15,17 @@ else:
 # This var saves half of the information (from the topic gateway/gw_id/rx) to be persisted
 prev_packet = None
 
-# This dict associates a dev_addr with a dict containing the dev_eui, application name and device name
+# This dict associates a dev_addr with a dict containing the {dev_eui, app_name and dev_name}
 devices_map = {}
+
+def init_packet_writter_message():
+    packet_writter_message = dict()
+    packet_writter_message['packet'] = None
+    packet_writter_message['messages'] = list()
+    return packet_writter_message
+
+# The data sent to the MQTT queue, to be written by the packet writer. It must have at least one MQ message
+packet_writter_message = init_packet_writter_message()
 
 class LoraServerIOCollector:
     
@@ -65,6 +74,7 @@ class LoraServerIOCollector:
 def on_message(client, userdata, msg):
     global prev_packet
     global devices_map
+    global packet_writter_message
     
     try:
         # print("Topic %s Packet %s"%(msg.topic, msg.payload))
@@ -72,15 +82,46 @@ def on_message(client, userdata, msg):
         mqtt_messsage = json.loads(msg.payload.decode("utf-8"))
 
     except Exception as e:
+
+        # Save this message an topic into MQ
+        packet_writter_message['messages'].append(
+            {
+                'topic':msg.topic,
+                'message':msg.payload.decode("utf-8"),
+                'data_collector_id': client.data_collector_id
+            }
+        )
+        save(json.dumps(packet_writter_message), client.data_collector_id)
+
+        # Reset packet_writter_message
+        packet_writter_message = init_packet_writter_message()
+
         logging.debug('[SKIPPED] Topic: {0}. Message received: {1}'.format(msg.topic, msg.payload.decode("utf-8") ))
         return
     
     try:
         standard_packet = {}
 
+        # If it's a Join message, then associate DevEUI with DevAddr
         if msg.topic[-5:]== "/join":
             device_info = { 'dev_eui': mqtt_messsage.get('devEUI', None)}
             devices_map[mqtt_messsage['devAddr']]= device_info
+
+            # Save this message an topic into MQ
+            packet_writter_message['messages'].append(
+                {
+                    'topic': msg.topic,
+                    'message': msg.payload.decode("utf-8"),
+                    'data_collector_id': client.data_collector_id
+                }
+            )
+            save(json.dumps(packet_writter_message), client.data_collector_id)
+
+            # Reset packet_writter_message
+            packet_writter_message = init_packet_writter_message()
+
+            logging.debug('Topic: {0}. Message received: {1}'.format(msg.topic, msg.payload.decode("utf-8")))
+
             return
 
         #From topic gateway/gw_id/tx or gateway/gw_id/tx
@@ -141,8 +182,12 @@ def on_message(client, userdata, msg):
 
             # Save prev_packet in case is not empty
             if prev_packet is not None:
-                save(json.dumps(prev_packet), client.data_collector_id)
+                packet_writter_message['packet']= prev_packet
+                save(json.dumps(packet_writter_message), client.data_collector_id)
+                
+                # Reset variables
                 prev_packet= None
+                packet_writter_message = init_packet_writter_message()
             
             # Set the dev_eui and other information if available. Otherwise, save packet 
             if 'dev_addr' in standard_packet:
@@ -154,7 +199,18 @@ def on_message(client, userdata, msg):
                         standard_packet['dev_name'] = devices_map[standard_packet['dev_addr']]['dev_name']
 
                 else:
+                    # Save this packet for now
                     prev_packet = standard_packet
+                    # Save the message and topic as well
+                    packet_writter_message['messages'].append(
+                        {
+                            'topic': msg.topic,
+                            'message': msg.payload.decode("utf-8"),
+                            'data_collector_id': client.data_collector_id
+                        }
+                    )
+            else:
+                logging.debug('Unhandled situation')    
             
             logging.debug('Topic: {0}. Message received: {1}'.format(msg.topic, msg.payload.decode("utf-8")))
 
@@ -199,18 +255,51 @@ def on_message(client, userdata, msg):
         else:
             logging.debug('[SKIPPED] Topic: {0}. Message received: {1}'.format(msg.topic, msg.payload.decode("utf-8") ))
 
+            # First, check if we had a prev_packet. If so, first save it 
             if prev_packet is not None and len(standard_packet) == 0:
-                standard_packet= prev_packet
+                packet_writter_message['packet'] = prev_packet
+                save(json.dumps(packet_writter_message), client.data_collector_id)
+                
+                # Reset vars
+                packet_writter_message = init_packet_writter_message()
                 prev_packet = None
-            else:
-                return
+
+            # Save SKIPPED MQ message and topic
+            packet_writter_message['messages'].append(
+                {
+                    'topic': msg.topic,
+                    'message': msg.payload.decode("utf-8"),
+                    'data_collector_id': client.data_collector_id
+                }
+            )
+            save(json.dumps(packet_writter_message), client.data_collector_id)
+
+            # Reset packet_writter_message
+            packet_writter_message = init_packet_writter_message()
+
+            return
 
         # Save packet
         if prev_packet is None and len(standard_packet) > 0:
-            save(json.dumps(standard_packet), client.data_collector_id)            
+            # Save packet JSON
+            packet_writter_message['packet'] = standard_packet
+            
+            # Save MQ message and topic
+            packet_writter_message['messages'].append(
+                {
+                    'topic': msg.topic,
+                    'message': msg.payload.decode("utf-8"),
+                    'data_collector_id': client.data_collector_id
+                }
+            )
+
+            save(json.dumps(packet_writter_message), client.data_collector_id)            
+
+            # Reset packet_writter_message obj
+            packet_writter_message = init_packet_writter_message()
 
     except Exception as e:
-        logging.error("Error creating Packet in GenericMqttCollector:", e, "Topic: ", msg.topic, "Message: ", msg.payload.decode("utf-8"))  
+        logging.error("Error creating Packet in LoraServerIOCollector:", e, "Topic: ", msg.topic, "Message: ", msg.payload.decode("utf-8"))  
         traceback.print_exc(file=sys.stdout)
 
 def on_connect(client, userdata, flags, rc):

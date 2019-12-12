@@ -7,5 +7,5 @@ else:
     logging.getLogger().setLevel(logging.INFO)
 
 
-def save(pkt, dc_id=None):
-    db_service.save(pkt)
+def save(packet_writter_message, dc_id=None):
+    db_service.save(packet_writter_message)

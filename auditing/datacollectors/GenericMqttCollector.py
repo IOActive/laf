@@ -12,6 +12,15 @@ if os.environ.get("ENVIRONMENT") == "DEV":
 else:
     logging.getLogger().setLevel(logging.INFO)
 
+def init_packet_writter_message():
+    packet_writter_message = dict()
+    packet_writter_message['packet'] = None
+    packet_writter_message['messages'] = list()
+    return packet_writter_message
+
+# The data sent to the MQTT queue, to be written by the packet writer. It must have at least one MQ message
+packet_writter_message = init_packet_writter_message()
+
 class GenericMqttCollector:
     
     TIMEOUT = 60
@@ -57,10 +66,20 @@ class GenericMqttCollector:
 
 
 def on_message(client, userdata, msg):
+    global packet_writter_message
     
     try:
         payload = msg.payload.decode("utf-8") 
         standardPacket = {}
+
+        # Save this message an topic into MQ
+        packet_writter_message['messages'].append(
+            {
+                'topic':msg.topic,
+                'message':msg.payload.decode("utf-8"),
+                'data_collector_id': client.data_collector_id
+            }
+        )
 
         if len(payload) > 0:
             mqttMessage = json.loads(payload)
@@ -103,10 +122,15 @@ def on_message(client, userdata, msg):
         standardPacket['dev_eui'] = getDevEUIFromMQTTTopic(msg.topic)
         standardPacket['data_collector_id'] = client.data_collector_id
         standardPacket['organization_id'] = client.organization_id
-        save(json.dumps(standardPacket), client.data_collector_id)
 
+        packet_writter_message['packet']= standardPacket
+
+        save(json.dumps(packet_writter_message), client.data_collector_id)
         
         logging.debug('Topic: {0}. Message received: {1}'.format(msg.topic, msg.payload.decode("utf-8") ))
+
+        # Reset packet_writter_message
+        packet_writter_message = init_packet_writter_message()
 
     except Exception as e:
         logging.error("Error creating Packet in GenericMqttCollector:", e, "Topic: ", msg.topic, "Message: ", msg.payload.decode("utf-8"))  

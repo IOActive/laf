@@ -48,6 +48,18 @@ class Alert(Base):
         session.add(self)
         session.flush()
 
+class CollectorMessage(Base):
+    __tablename__ = 'collector_message'
+    id = Column(BigIntegerType, primary_key=True, autoincrement=True)
+    data_collector_id = Column(BigIntegerType, ForeignKey("data_collector.id"), nullable=False)
+    packet_id = Column(BigIntegerType, ForeignKey("packet.id"), nullable=True)
+    message = Column(String(4096), nullable=True)
+    topic = Column(String(512), nullable=True)
+
+    def save(self):
+        session.add(self)
+        session.flush()
+
 class Gateway(Base):
     __tablename__ = 'gateway'
     id = Column(BigIntegerType, primary_key=True, autoincrement=True)
@@ -429,6 +441,7 @@ class Packet(Base):
 
     def save_to_db(self):
         session.add(self)
+        session.flush()
 
 class DeviceAuthData(Base):
     __tablename__ = 'device_auth_data'

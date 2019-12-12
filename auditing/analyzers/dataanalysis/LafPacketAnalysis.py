@@ -70,7 +70,7 @@ def processPacket(packet):
 
         # Check if DevNonce is repeated and save it
         prev_packet_id = DevNonce.saveIfNotExists(packet.dev_nonce, device_obj.id, packet.id) 
-        if prev_packet_id:
+        if prev_packet_id and (device_obj.has_joined or device_obj.join_inferred):
             device_obj.repeated_dev_nonce = True
 
             parameters= {}
@@ -92,7 +92,10 @@ def processPacket(packet):
                 logging.error("Error trying to save Alert LAF-001: {0}".format(exc))
             
             ReportAlert.print_alert(alert)
-        
+
+        elif not(prev_packet_id):
+            device_obj.has_joined=False
+            device_obj.join_inferred=False
 
         device_obj.join_request_counter += 1
         device_obj.is_otaa = True

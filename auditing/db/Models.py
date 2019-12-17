@@ -376,7 +376,6 @@ class Packet(Base):
     app_name = Column(String(100), nullable=True)
     dev_name = Column(String(100), nullable=True)
 
-
     def to_json(self):
         return {
             'id': self.id,

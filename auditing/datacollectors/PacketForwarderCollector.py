@@ -139,7 +139,7 @@ def listener(client):
             )
 
             # Save the packet
-            save(json.dumps(packet_writter_message), client.data_collector_id)     
+            save(packet_writter_message, client.data_collector_id)     
 
             # Reset packet_writter_message
             packet_writter_message = init_packet_writter_message()

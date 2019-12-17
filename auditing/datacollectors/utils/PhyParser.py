@@ -1,5 +1,10 @@
-import sys, os, json
+import sys, os, json, logging
 import lorawanwrapper.LorawanWrapper as LorawanWrapper
+
+if os.environ.get("ENVIRONMENT") == "DEV":
+    logging.getLogger().setLevel(logging.DEBUG)
+else:
+    logging.getLogger().setLevel(logging.INFO)
 
 # This function is meant to be reused by every collector
 def setPHYPayload(data):
@@ -7,11 +12,16 @@ def setPHYPayload(data):
     stringPHY = LorawanWrapper.printPHYPayload(data)
 
     # If the PHYPayload couldn't be parsed, just put the error and return
-    if "Unmarshal Error" in stringPHY or "Error" in stringPHY:
+    if "Error" in stringPHY:
         packet['error'] = stringPHY
         return packet
 
-    jsonPHY = json.loads(stringPHY)
+    try:
+        jsonPHY = json.loads(stringPHY)
+    except Exception as e:
+        logging.error('Error parsing PHYPayload: {0}'.format(e))
+        packet['error'] = stringPHY
+        return packet
 
     # The following fields are shared by every packet
     packet['m_type'] = jsonPHY['mhdr']['mType']

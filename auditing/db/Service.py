@@ -7,6 +7,8 @@ def save(jsonPacket):
 	# Parse the JSON into a dict
 	data = json.loads(jsonPacket)
 
+	# print('Saving {0}'.format(jsonPacket))
+
 	# If a packet was received, persist it 
 	new_packet = None
 	packet_dict= data.get('packet')

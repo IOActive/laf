@@ -180,7 +180,7 @@ def on_message(ws, raw_message):
             packet_writter_message['packet']= packet
 
         # Save the packet
-        save(json.dumps(packet_writter_message), ws.data_collector_id)
+        save(packet_writter_message, ws.data_collector_id)
 
         logging.debug('Message received from TTN saved in DB: {0}.'.format( packet_writter_message))
 

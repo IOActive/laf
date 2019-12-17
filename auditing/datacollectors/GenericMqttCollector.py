@@ -125,7 +125,7 @@ def on_message(client, userdata, msg):
 
         packet_writter_message['packet']= standardPacket
 
-        save(json.dumps(packet_writter_message), client.data_collector_id)
+        save(packet_writter_message, client.data_collector_id)
         
         logging.debug('Topic: {0}. Message received: {1}'.format(msg.topic, msg.payload.decode("utf-8") ))
 

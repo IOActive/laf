@@ -83,6 +83,16 @@ def on_message(client, userdata, msg):
 
     except Exception as e:
 
+        # First, check if we had a prev_packet. If so, first save it 
+        if prev_packet is not None:
+            packet_writter_message['packet'] = prev_packet
+
+            save(packet_writter_message, client.data_collector_id)
+            
+            # Reset vars
+            packet_writter_message = init_packet_writter_message()
+            prev_packet = None
+
         # Save this message an topic into MQ
         packet_writter_message['messages'].append(
             {
@@ -91,7 +101,7 @@ def on_message(client, userdata, msg):
                 'data_collector_id': client.data_collector_id
             }
         )
-        save(json.dumps(packet_writter_message), client.data_collector_id)
+        save(packet_writter_message, client.data_collector_id)
 
         # Reset packet_writter_message
         packet_writter_message = init_packet_writter_message()
@@ -115,7 +125,7 @@ def on_message(client, userdata, msg):
                     'data_collector_id': client.data_collector_id
                 }
             )
-            save(json.dumps(packet_writter_message), client.data_collector_id)
+            save(packet_writter_message, client.data_collector_id)
 
             # Reset packet_writter_message
             packet_writter_message = init_packet_writter_message()
@@ -183,7 +193,7 @@ def on_message(client, userdata, msg):
             # Save prev_packet in case is not empty
             if prev_packet is not None:
                 packet_writter_message['packet']= prev_packet
-                save(json.dumps(packet_writter_message), client.data_collector_id)
+                save(packet_writter_message, client.data_collector_id)
                 
                 # Reset variables
                 prev_packet= None
@@ -258,7 +268,7 @@ def on_message(client, userdata, msg):
             # First, check if we had a prev_packet. If so, first save it 
             if prev_packet is not None and len(standard_packet) == 0:
                 packet_writter_message['packet'] = prev_packet
-                save(json.dumps(packet_writter_message), client.data_collector_id)
+                save(packet_writter_message, client.data_collector_id)
                 
                 # Reset vars
                 packet_writter_message = init_packet_writter_message()
@@ -272,7 +282,7 @@ def on_message(client, userdata, msg):
                     'data_collector_id': client.data_collector_id
                 }
             )
-            save(json.dumps(packet_writter_message), client.data_collector_id)
+            save(packet_writter_message, client.data_collector_id)
 
             # Reset packet_writter_message
             packet_writter_message = init_packet_writter_message()
@@ -293,7 +303,7 @@ def on_message(client, userdata, msg):
                 }
             )
 
-            save(json.dumps(packet_writter_message), client.data_collector_id)            
+            save(packet_writter_message, client.data_collector_id)            
 
             # Reset packet_writter_message obj
             packet_writter_message = init_packet_writter_message()

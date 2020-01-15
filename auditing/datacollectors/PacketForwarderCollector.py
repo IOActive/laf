@@ -14,6 +14,15 @@ else:
 # This dict keeps track of the 
 gateways_location={}
 
+def init_packet_writter_message():
+    packet_writter_message = dict()
+    packet_writter_message['packet'] = None
+    packet_writter_message['messages'] = list()
+    return packet_writter_message
+
+# The data sent to the MQTT queue, to be written by the packet writer. It must have at least one MQ message
+packet_writter_message = init_packet_writter_message()
+
 class PacketForwarderCollector:
 
     def __init__(self, data_collector_id, organization_id, port):
@@ -34,6 +43,7 @@ class PacketForwarderCollector:
         self.listener.join()
 
 def listener(client):
+    global packet_writter_message
 
     udp_listener = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_listener.bind(('', client.port))
@@ -56,66 +66,83 @@ def listener(client):
                     header= payload[0:12]
             except Exception as e:
                 logging.debug('Skipping packet: {0}'.format(payload))
-                continue
+                skip_packet= True
         else:
             logging.debug('Skipping packet: {0}'.format(payload))
-            continue
+            skip_packet= True
+        
         
         try:
-            standardPacket={}
+            if not skip_packet:
 
-            if "stat" in udp_message:
+                standardPacket={}
+
+                if "stat" in udp_message:
+                    
+                    pkt = udp_message.get("stat")
+
+                    location = {}
+                    if 'lati' in pkt:
+                        location['latitude'] = pkt.get('lati')
+                    if 'long' in pkt:
+                        location['longitude'] = pkt.get('long') 
+                    if 'alti' in pkt:
+                        location['altitude'] = pkt.get('alti')
+
+                    if len(location) > 0:
+                        gateway= get_gateway_id(header)
+                        gateways_location[gateway]=location
+
+                if "rxpk" in udp_message or "txpk" in udp_message:
+                    
+                    pkt = udp_message.get("rxpk")[0] if "rxpk" in udp_message else udp_message.get("txpk")
+
+                    standardPacket = phy_parser.setPHYPayload(pkt.get('data'))
+                    standardPacket['chan'] = pkt.get('chan', None)
+                    standardPacket['stat'] = pkt.get('stat', None)
+                    standardPacket['lsnr'] = pkt.get('lsnr', None)
+                    standardPacket['rssi'] = pkt.get('rssi', None)
+                    standardPacket['tmst'] = pkt.get('tmst', None)
+                    standardPacket['rfch'] = pkt.get('rfch', None)
+                    standardPacket['freq'] = pkt.get('freq', None)
+                    standardPacket['modu'] = pkt.get('modu', None)
+                    standardPacket['datr'] = json.dumps(parse_datr(pkt.get('datr', None)))
+                    standardPacket['codr'] = pkt.get('codr', None)
+                    standardPacket['size'] = pkt.get('size', None)
+                    standardPacket['data'] = pkt.get('data', None)
                 
-                pkt = udp_message.get("stat")
-
-                location = {}
-                if 'lati' in pkt:
-                    location['latitude'] = pkt.get('lati')
-                if 'long' in pkt:
-                    location['longitude'] = pkt.get('long') 
-                if 'alti' in pkt:
-                    location['altitude'] = pkt.get('alti')
-
-                if len(location) > 0:
                     gateway= get_gateway_id(header)
-                    gateways_location[gateway]=location
+                    if gateway:
 
-            if "rxpk" in udp_message or "txpk" in udp_message:
-                
-                pkt = udp_message.get("rxpk")[0] if "rxpk" in udp_message else udp_message.get("txpk")
+                        standardPacket['gateway'] = gateway
 
-                standardPacket = phy_parser.setPHYPayload(pkt.get('data'))
-                standardPacket['chan'] = pkt.get('chan', None)
-                standardPacket['stat'] = pkt.get('stat', None)
-                standardPacket['lsnr'] = pkt.get('lsnr', None)
-                standardPacket['rssi'] = pkt.get('rssi', None)
-                standardPacket['tmst'] = pkt.get('tmst', None)
-                standardPacket['rfch'] = pkt.get('rfch', None)
-                standardPacket['freq'] = pkt.get('freq', None)
-                standardPacket['modu'] = pkt.get('modu', None)
-                standardPacket['datr'] = json.dumps(parse_datr(pkt.get('datr', None)))
-                standardPacket['codr'] = pkt.get('codr', None)
-                standardPacket['size'] = pkt.get('size', None)
-                standardPacket['data'] = pkt.get('data', None)
+                        if gateway in gateways_location:
+                            standardPacket['latitude']= gateways_location[gateway]['latitude']
+                            standardPacket['longitude']= gateways_location[gateway]['longitude']
+                            standardPacket['altitude']= gateways_location[gateway]['altitude']
+                    
+                    standardPacket['date'] = datetime.datetime.now().__str__() 
+                    standardPacket['data_collector_id'] = client.data_collector_id
+                    standardPacket['organization_id'] = client.organization_id
 
-            
-                gateway= get_gateway_id(header)
-                if gateway:
+                    packet_writter_message['packet']= standardPacket
+                    
+                    logging.debug('Message received: {0} \n{1}'.format(payload, json.dumps(standardPacket)))
 
-                    standardPacket['gateway'] = gateway
+            # Save this message an topic into MQ
+            packet_writter_message['messages'].append(
+                {
+                    'topic':None,
+                    'message':payload.decode("utf-8"),
+                    'data_collector_id': client.data_collector_id
+                }
+            )
 
-                    if gateway in gateways_location:
-                        standardPacket['latitude']= gateways_location[gateway]['latitude']
-                        standardPacket['longitude']= gateways_location[gateway]['longitude']
-                        standardPacket['altitude']= gateways_location[gateway]['altitude']
-                
-                standardPacket['date'] = datetime.datetime.now().__str__() 
-                standardPacket['data_collector_id'] = client.data_collector_id
-                standardPacket['organization_id'] = client.organization_id
-                
-                # Save the packet
-                save(json.dumps(standardPacket), client.data_collector_id)     
-                logging.debug('Message received: {0} \n{1}'.format(payload, json.dumps(standardPacket)))
+            # Save the packet
+            save(packet_writter_message, client.data_collector_id)     
+
+            # Reset packet_writter_message
+            packet_writter_message = init_packet_writter_message()
 
         except Exception as e:
             logging.error("Error creating Packet in PacketForwarderCollector: {0}. Message: {1}".format(e,payload))  

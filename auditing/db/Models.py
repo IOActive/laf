@@ -48,6 +48,18 @@ class Alert(Base):
         session.add(self)
         session.flush()
 
+class CollectorMessage(Base):
+    __tablename__ = 'collector_message'
+    id = Column(BigIntegerType, primary_key=True, autoincrement=True)
+    data_collector_id = Column(BigIntegerType, ForeignKey("data_collector.id"), nullable=False)
+    packet_id = Column(BigIntegerType, ForeignKey("packet.id"), nullable=True)
+    message = Column(String(4096), nullable=True)
+    topic = Column(String(512), nullable=True)
+
+    def save(self):
+        session.add(self)
+        session.flush()
+
 class Gateway(Base):
     __tablename__ = 'gateway'
     id = Column(BigIntegerType, primary_key=True, autoincrement=True)
@@ -364,7 +376,6 @@ class Packet(Base):
     app_name = Column(String(100), nullable=True)
     dev_name = Column(String(100), nullable=True)
 
-
     def to_json(self):
         return {
             'id': self.id,
@@ -429,6 +440,7 @@ class Packet(Base):
 
     def save_to_db(self):
         session.add(self)
+        session.flush()
 
 class DeviceAuthData(Base):
     __tablename__ = 'device_auth_data'
@@ -445,6 +457,9 @@ class DeviceAuthData(Base):
     join_accept_packet_id = Column(BigIntegerType, ForeignKey("packet.id"), nullable=True)
     join_request_packet_id = Column(BigIntegerType, ForeignKey("packet.id"), nullable=True)
     app_key_hex = Column(String(32), nullable=True)
+    # These vars are in case we cracked the key using another JoinRequest
+    second_join_request_packet_id = Column(BigIntegerType, ForeignKey("packet.id"), nullable=True)
+    second_join_request = Column(String(200), nullable=True)
 
     def save(self):
         session.add(self)
@@ -477,6 +492,10 @@ class PotentialAppKey(Base):
     @classmethod
     def find_all_by_organization_id_after_datetime(cls, organization_id, since):
         return session.query(cls).filter(cls.organization_id == organization_id, cls.last_seen > since).order_by(desc(cls.last_seen)).all()
+    
+    @classmethod
+    def find_all_by_device_auth_id(cls, dev_auth_data_id):
+        return session.query(cls).filter(cls.device_auth_data_id == dev_auth_data_id).all()
 
 class RowProcessed(Base):
     __tablename__ = 'row_processed'

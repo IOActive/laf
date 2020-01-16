@@ -48,12 +48,31 @@ def processPacket(packet):
                         organization_id = packet.organization_id,
                         )
                     device_obj.save()
+                    
                 except Exception as exc:
                     logging.error("Error trying to save Gateway: {0}".format(exc))
             
             else:
                 # Add the JoinEUI
                 device_obj.join_eui= packet.join_eui
+        
+        # Associate Device with a Gateway 
+        if gw_obj is not None:            
+            try:
+                gateway_device_obj = GatewayToDevice.find_one_by_gateway_id_and_device_id(gw_obj.id, device_obj.id)
+                if gateway_device_obj is None:
+                    gateway_device_obj = GatewayToDevice(
+                        gateway_id = gw_obj.id,
+                        device_id = device_obj.id
+                    )
+                    gateway_device_obj.save()
+            except Exception as exc:
+                logging.error("Error trying to save GatewayToDevice: {0}".format(exc))    
+        else:
+            # If we don't receive the gateway in the packet,
+            # get the hex ID of the gateway associated to the device if any. 
+            # If we have more than 1 gateway associated to the device, this method returns None
+            gw_obj= Gateway.find_only_one_gateway_by_device_id(device_obj.id)
 
         # Associate Device with the DataCollector if not previously existing
         device_data_collector_obj = DataCollectorToDevice.find_one_by_data_collector_id_and_device_id(packet.data_collector_id, device_obj.id)
@@ -77,6 +96,12 @@ def processPacket(packet):
             parameters["dev_eui"]= device_obj.dev_eui
             parameters["dev_nonce"]= packet.dev_nonce
             parameters["prev_packet_id"]= prev_packet_id
+            parameters['packet_date']= packet.date.strftime('%Y-%m-%d %H:%M:%S')
+            
+            if gw_obj:
+                parameters["gateway"]= gw_obj.gw_hex_id
+            else:
+                parameters["gateway"]= "Unkwown"
             
             try:
                 alert = Alert(
@@ -88,10 +113,10 @@ def processPacket(packet):
                     data_collector_id= packet.data_collector_id
                 )
                 alert.save()
+                
+                ReportAlert.print_alert(alert)
             except Exception as exc:
                 logging.error("Error trying to save Alert LAF-001: {0}".format(exc))
-            
-            ReportAlert.print_alert(alert)
 
         elif not(prev_packet_id):
             device_obj.has_joined=False
@@ -106,20 +131,6 @@ def processPacket(packet):
 
         # Save the last time it was seen
         device_obj.last_up_timestamp = packet.date
-
-        # Associate Device with a Gateway 
-        if gw_obj is not None:
-            
-            try:
-                gateway_device_obj = GatewayToDevice.find_one_by_gateway_id_and_device_id(gw_obj.id, device_obj.id)
-                if gateway_device_obj is None:
-                    gateway_device_obj = GatewayToDevice(
-                        gateway_id = gw_obj.id,
-                        device_id = device_obj.id
-                    )
-                    gateway_device_obj.save()
-            except Exception as exc:
-                logging.error("Error trying to save GatewayToDevice: {0}".format(exc))
 
         device_obj.last_packet_id= packet.id
     
@@ -244,6 +255,11 @@ def processPacket(packet):
                     gateway_device_session_obj.save()
                 except Exception as exc:
                     logging.error("Error trying to save GatewayToDeviceSession: {0}".format(exc))
+        else:
+            # If we don't receive the gateway in the packet,
+            # get the hex ID of the gateway associated to the device_session if any. 
+            # If we have more than 1 gateway associated to the device_session, this method returns None
+            gw_obj= Gateway.find_only_one_gateway_by_device_session_id(dev_ses_obj.id)
 
         # Associate DeviceSession with the DataCollector
         device_session_data_collector_obj = DataCollectorToDeviceSession.find_one_by_data_collector_id_and_device_session_id(packet.data_collector_id, dev_ses_obj.id)
@@ -284,6 +300,17 @@ def processPacket(packet):
                             parameters["counter"]= dev_ses_obj.getCounter(is_uplink_packet)
                             parameters["new_counter"]= packet.f_count
                             parameters["prev_packet_id"]= dev_ses_obj.last_packet_id
+                            parameters['packet_date']= packet.date.strftime('%Y-%m-%d %H:%M:%S')
+
+                            if device_obj:
+                                parameters['dev_eui']= device_obj.dev_eui
+                            else:
+                                parameters['dev_eui']= 'Unkwown'
+
+                            if gw_obj:
+                                parameters["gateway"]= gw_obj.gw_hex_id
+                            else:
+                                parameters["gateway"]= "Unkwown"
                             
                             try:
                                 alert= Alert(
@@ -295,15 +322,17 @@ def processPacket(packet):
                                     data_collector_id= packet.data_collector_id
                                 )
                                 alert.save()
+
+                                ReportAlert.print_alert(alert)
+
                             except Exception as exc:
                                 logging.error("Error trying to save Alert LAF-006: {0}".format(exc))
-                            
-                            ReportAlert.print_alert(alert)
 
-                            if device_obj is not None and not device_obj.is_otaa:
-                                dev_ses_obj.may_be_abp = True
-                            else:
-                                logging.warning("Warning! The device is marked as OTAA but reset counter without having joined. Packet id %d"%(packet.id))
+                            if device_obj is not None:
+                                if not device_obj.is_otaa:
+                                    dev_ses_obj.may_be_abp = True
+                                else:
+                                    logging.warning("Warning! The device is marked as OTAA but reset counter without having joined. Packet id %d"%(packet.id))
 
                         dev_ses_obj.reset_counter += 1
             
@@ -318,6 +347,17 @@ def processPacket(packet):
                         parameters["counter"]= dev_ses_obj.getCounter(is_uplink_packet)
                         parameters["new_counter"]= packet.f_count
                         parameters["prev_packet_id"]= dev_ses_obj.last_packet_id
+                        parameters['packet_date']= packet.date.strftime('%Y-%m-%d %H:%M:%S')
+
+                        if device_obj:
+                            parameters['dev_eui']= device_obj.dev_eui
+                        else:
+                            parameters['dev_eui']= 'Unkwown'
+
+                        if gw_obj:
+                            parameters["gateway"]= gw_obj.gw_hex_id
+                        else:
+                            parameters["gateway"]= "Unkwown"
                         
                         try:
                             alert= Alert(
@@ -329,10 +369,11 @@ def processPacket(packet):
                                 data_collector_id= packet.data_collector_id
                             )
                             alert.save()
+
+                            ReportAlert.print_alert(alert)
+
                         except Exception as exc:
                             logging.error("Error trying to save Alert LAF-007: {0}".format(exc))
-                        
-                        ReportAlert.print_alert(alert)
 
         # Update the counter
         dev_ses_obj.setCounter(packet.f_count, is_uplink_packet)
@@ -356,6 +397,12 @@ def processPacket(packet):
                 parameters["new_dev_eui"] = device_obj.dev_eui,
                 parameters["dev_addr"] = dev_ses_obj.dev_addr
                 parameters["prev_packet_id"]= dev_ses_obj.last_packet_id
+                parameters['packet_date']= packet.date.strftime('%Y-%m-%d %H:%M:%S')
+
+                if gw_obj:
+                    parameters["gateway"]= gw_obj.gw_hex_id
+                else:
+                    parameters["gateway"]= "Unkwown"
                 
                 try:
                     alert= Alert(
@@ -368,10 +415,11 @@ def processPacket(packet):
                         data_collector_id= packet.data_collector_id
                     )
                     alert.save()
+
+                    ReportAlert.print_alert(alert)
+
                 except Exception as exc:
                     logging.error("Error trying to save Alert LAF-002: {0}".format(exc))
-
-                ReportAlert.print_alert(alert)
             
             # device_obj.has_joined = False
             
@@ -397,7 +445,7 @@ def updateLocation(gateway, packet):
     location_accuracy = 20.0
 
     if packet.latitude is None or packet.longitude is None:
-        return
+        return gateway
     else:
         lati = packet.latitude
         long = packet.longitude
@@ -411,11 +459,12 @@ def updateLocation(gateway, packet):
         if measure(gateway.location_latitude, gateway.location_longitude, lati, long) > location_accuracy:
                     
             parameters={}
-            parameters["gw_hex_id"]= gateway.gw_hex_id
+            parameters["gateway"]= gateway.gw_hex_id
             parameters["location_latitude"]= gateway.location_latitude
             parameters["location_longitude"]= gateway.location_longitude
             parameters["lati"]= lati
             parameters["long"]= long
+            parameters['packet_date']= packet.date.strftime('%Y-%m-%d %H:%M:%S')
 
             try:
                 alert= Alert(
@@ -427,12 +476,11 @@ def updateLocation(gateway, packet):
                     data_collector_id= packet.data_collector_id
                 )
                 alert.save()
+
+                ReportAlert.print_alert(alert)
                 
             except Exception as exc:
                 logging.error("Error trying to save Alert LAF-010: {0}".format(exc))
-
-            ReportAlert.print_alert(alert)
-
 
         gateway.location_latitude = lati
         gateway.location_longitude = long

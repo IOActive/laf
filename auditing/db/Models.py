@@ -85,6 +85,26 @@ class Gateway(Base):
     @classmethod
     def find_one_by_gw_hex_id_and_organization_id(cls, gw_hex_id, organization_id):
         return session.query(cls).filter(cls.gw_hex_id == gw_hex_id, cls.organization_id == organization_id).first()
+
+    # This method tries to retrieve the gateway ID associated to a device. In case we have more than one, we return None
+    @classmethod
+    def find_only_one_gateway_by_device_id(cls, device_id):
+        result= session.query(cls).join(GatewayToDevice).filter(GatewayToDevice.device_id == device_id).all()
+        
+        if len(result)== 1:
+            return result[0]
+        
+        return None
+
+    # This method tries to retrieve the gateway ID associated to a device session. In case we have more than one, we return None
+    @classmethod
+    def find_only_one_gateway_by_device_session_id(cls, device_session_id):
+        result= session.query(cls).join(GatewayToDeviceSession).filter(GatewayToDeviceSession.device_session_id == device_session_id).all()
+
+        if len(result)== 1:
+            return result[0]
+        
+        return None
     
 class DataCollector(Base):
     __tablename__ = "data_collector"

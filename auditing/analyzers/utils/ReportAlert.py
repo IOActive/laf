@@ -24,6 +24,8 @@ def print_alert(alert):
             message= message.replace('{'+param_name+'}', str(param_value))
 
         message= message.replace('{'+'packet_id'+'}', str(alert.packet_id))
+
+        message= message.replace('{'+'created_at'+'}', alert.created_at.strftime('%Y-%m-%d %H:%M'))
     
     except Exception as e:
         logging.error('Error printing alert: {0}'.format(e))

@@ -1,7 +1,7 @@
 import json, datetime, logging, os
 import lorawanwrapper.LorawanWrapper as LorawanWrapper 
 from auditing.analyzers.utils import ReportAlert
-from auditing.db.Models import Device, DeviceAuthData, DeviceSession, Alert, DataCollectorToDevice, DataCollectorToDeviceSession, PotentialAppKey
+from auditing.db.Models import Device, DeviceAuthData, DeviceSession, Alert, DataCollectorToDevice, DataCollectorToDeviceSession, PotentialAppKey, Gateway
 
 if os.environ.get("ENVIRONMENT") == "DEV":
     logging.getLogger().setLevel(logging.DEBUG)
@@ -71,17 +71,12 @@ def bruteForce(packet):
 
                 if len(correct_app_keys) > 1:
                     logging.warning("Found more than one possible keys for the device {0}. One of them should be the correct. Check it manually. Keys: {1}".format(packet.dev_eui, correct_app_keys))
-                else:
+                elif len(correct_app_keys) == 1:
                     # AppKey found!!
                     device_auth_obj.second_join_request_packet_id = packet.id
                     device_auth_obj.second_join_request = packet.data
                     device_auth_obj.app_key_hex = correct_app_keys[0]
 
-                    # parameters={}
-                    # parameters["dev_eui"] = LorawanWrapper.getDevEUI(device_auth_obj.join_request)
-                    # parameters["app_key"] = correct_app_key[0]
-                    # parameters["previous_join_request_packet_id"] = device_auth_obj.join_request_packet_id
-                    
                     parameters={}
                     parameters["dev_addr"] = "Unkwown"
                     parameters["dev_eui"] = LorawanWrapper.getDevEUI(device_auth_obj.join_request)
@@ -89,6 +84,20 @@ def bruteForce(packet):
                     parameters["packet_id_1"] = device_auth_obj.join_request_packet_id
                     parameters["packet_type_1"] = "JoinRequest"
                     parameters["packet_type_2"] = "JoinRequest"
+                    parameters['packet_date']= packet.date.strftime('%Y-%m-%d %H:%M:%S')
+
+                    # Try to get the gateway from the packet, or retrieve it from DB if possible
+                    if packet.gateway:            
+                        parameters["gateway"] = packet.gateway
+                    else:
+                        # If we don't receive the gateway in the packet,
+                        # get the hex ID of the gateway associated to the device if any. 
+                        # If we have more than 1 gateway associated to the device, this method returns None
+                        gw_obj= Gateway.find_only_one_gateway_by_device_id(device_obj.id)
+                        if gw_obj:
+                            parameters["gateway"]= gw_obj.gw_hex_id
+                        else:
+                            parameters["gateway"]= 'Unkwown'
 
                     try:
                         alert= Alert(
@@ -101,10 +110,11 @@ def bruteForce(packet):
                             data_collector_id= packet.data_collector_id
                         )
                         alert.save()
+
+                        ReportAlert.print_alert(alert)
+
                     except Exception as exc:
                         logging.error("Error trying to save Alert LAF-009: {0}".format(exc))     
-
-                    ReportAlert.print_alert(alert)
 
                     return
         
@@ -241,6 +251,19 @@ def bruteForce(packet):
             parameters["packet_id_1"] = device_auth_obj.join_request_packet_id
             parameters["packet_type_1"] = "JoinRequest"
             parameters["packet_type_2"] = "JoinAccept"
+            parameters['packet_date']= packet.date.strftime('%Y-%m-%d %H:%M:%S')
+
+            if packet.gateway:            
+                parameters["gateway"] = packet.gateway
+            else:
+                # If we don't receive the gateway in the packet,
+                # get the hex ID of the gateway associated to the device if any. 
+                # If we have more than 1 gateway associated to the device, this method returns None
+                gw_obj= Gateway.find_only_one_gateway_by_device_id(device_obj.id)
+                if gw_obj:
+                    parameters["gateway"]= gw_obj.gw_hex_id
+                else:
+                    parameters["gateway"]= 'Unkwown'
 
             try:
                 alert= Alert(
@@ -254,10 +277,11 @@ def bruteForce(packet):
                     data_collector_id= packet.data_collector_id
                 )
                 alert.save()
+
+                ReportAlert.print_alert(alert)
+
             except Exception as exc:
                 logging.error("Error trying to save Alert LAF-009: {0}".format(exc))     
-
-            ReportAlert.print_alert(alert)
 
 def deriveSessionKeys(device_auth_obj, appKey):
     json_result = LorawanWrapper.generateSessionKeysFromJoins(device_auth_obj.join_request, device_auth_obj.join_accept, appKey)

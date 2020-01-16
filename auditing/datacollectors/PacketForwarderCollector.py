@@ -20,9 +20,6 @@ def init_packet_writter_message():
     packet_writter_message['messages'] = list()
     return packet_writter_message
 
-# The data sent to the MQTT queue, to be written by the packet writer. It must have at least one MQ message
-packet_writter_message = init_packet_writter_message()
-
 class PacketForwarderCollector:
 
     def __init__(self, data_collector_id, organization_id, port):
@@ -30,6 +27,8 @@ class PacketForwarderCollector:
         self.organization_id = organization_id
         self.port = port
         self.stop_thread=True
+        # The data sent to the MQTT queue, to be written by the packet writer. It must have at least one MQ message
+        self.packet_writter_message = init_packet_writter_message()
 
     def connect(self):
         self.stop_thread=False
@@ -43,7 +42,6 @@ class PacketForwarderCollector:
         self.listener.join()
 
 def listener(client):
-    global packet_writter_message
 
     udp_listener = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_listener.bind(('', client.port))
@@ -125,12 +123,12 @@ def listener(client):
                     standardPacket['data_collector_id'] = client.data_collector_id
                     standardPacket['organization_id'] = client.organization_id
 
-                    packet_writter_message['packet']= standardPacket
+                    client.packet_writter_message['packet']= standardPacket
                     
                     logging.debug('Message received: {0} \n{1}'.format(payload, json.dumps(standardPacket)))
 
             # Save this message an topic into MQ
-            packet_writter_message['messages'].append(
+            client.packet_writter_message['messages'].append(
                 {
                     'topic':None,
                     'message':payload.decode("utf-8"),
@@ -139,10 +137,10 @@ def listener(client):
             )
 
             # Save the packet
-            save(packet_writter_message, client.data_collector_id)     
+            save(client.packet_writter_message, client.data_collector_id)     
 
             # Reset packet_writter_message
-            packet_writter_message = init_packet_writter_message()
+            client.packet_writter_message = init_packet_writter_message()
 
         except Exception as e:
             logging.error("Error creating Packet in PacketForwarderCollector: {0}. Message: {1}".format(e,payload))  

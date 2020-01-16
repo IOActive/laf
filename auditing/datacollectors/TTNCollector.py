@@ -29,12 +29,6 @@ def init_packet_writter_message():
     packet_writter_message['messages'] = list()
     return packet_writter_message
 
-# The data sent to the MQTT queue, to be written by the packet writer. It must have at least one MQ message
-packet_writter_message = init_packet_writter_message()
-
-# Dict containing location 
-location = dict()
-
 class TTNCollector:
     def __init__(self, data_collector_id, organization_id, user, password, gateway_id):
         self.data_collector_id = data_collector_id
@@ -48,6 +42,10 @@ class TTNCollector:
         self.connected = "DISCONNECTED"
         self.disabled = False
         self.manually_disconnected = None
+        # The data sent to the MQTT queue, to be written by the packet writer. It must have at least one MQ message
+        self.packet_writter_message = init_packet_writter_message()
+        # Dict containing location 
+        self.location = dict()
     
     def connect(self):
         self.session = login(self.user, self.password)
@@ -66,6 +64,9 @@ class TTNCollector:
             self.ws.on_open = on_open
             self.ws.user_data = self
             self.ws.is_closed = False
+
+            self.ws.packet_writter_message = self.packet_writter_message
+            self.ws.location = self.location
 
             thread = threading.Thread(target=self.ws.run_forever)
             thread.daemon = True
@@ -87,16 +88,16 @@ class TTNCollector:
             logging.error("Error closing socket: " + str(exc))
 
 def on_message(ws, raw_message):
-    global packet_writter_message
-    global location
 
-    logging.info("Message: {}".format(raw_message))
+    # The contents of many messages is an 'h'. We don't want to print that.
+    if len(raw_message)>1:
+        logging.info("Message: {}".format(raw_message))
 
     # Remove data format stuff
     raw_message = raw_message.replace('\\"', '"')
 
     # Save the message that originates the packet
-    packet_writter_message['messages'].append(
+    ws.packet_writter_message['messages'].append(
         {
             'topic': None,
             'message': raw_message[0:4096],
@@ -126,9 +127,9 @@ def on_message(ws, raw_message):
             message = raw_message[18:-2].replace('\\"', '"')
             status_message = json.loads(message)
 
-            location['longitude']= status_message.get('status').get('location').get('longitude')
-            location['latitude']= status_message.get('status').get('location').get('latitude')
-            location['altitude']= status_message.get('status').get('location').get('altitude')
+            ws.location['longitude']= status_message.get('status').get('location').get('longitude')
+            ws.location['latitude']= status_message.get('status').get('location').get('latitude')
+            ws.location['altitude']= status_message.get('status').get('location').get('altitude')
         
         except Exception as e:
             logging.error("Error when fetching location in TTNCollector:" + str(e) + " Message: " + raw_message)
@@ -154,13 +155,13 @@ def on_message(ws, raw_message):
             packet['size'] = None
             packet['data'] = message.get('payload')
 
-            if len(location)>0:
-                packet['latitude'] = location['latitude']
-                packet['longitude'] = location['longitude']
-                packet['altitude'] = location['altitude']
+            if len(ws.location)>0:
+                packet['latitude'] = ws.location['latitude']
+                packet['longitude'] = ws.location['longitude']
+                packet['altitude'] = ws.location['altitude']
                 
                 # Reset location
-                location={}
+                ws.location={}
 
             packet['app_name'] = None
             packet['dev_name'] = None
@@ -177,15 +178,15 @@ def on_message(ws, raw_message):
             packet['data_collector_id'] = ws.data_collector_id
             packet['organization_id'] = ws.organization_id
                 
-            packet_writter_message['packet']= packet
+            ws.packet_writter_message['packet']= packet
 
         # Save the packet
-        save(packet_writter_message, ws.data_collector_id)
+        save(ws.packet_writter_message, ws.data_collector_id)
 
-        logging.debug('Message received from TTN saved in DB: {0}.'.format( packet_writter_message))
+        logging.debug('Message received from TTN saved in DB: {0}.'.format(ws.packet_writter_message))
 
         # Reset this variable
-        packet_writter_message = init_packet_writter_message()
+        ws.packet_writter_message = init_packet_writter_message()
 
     except Exception as e:
         logging.error("Error creating Packet in TTNCollector:" + str(e) + " Message: " + raw_message)

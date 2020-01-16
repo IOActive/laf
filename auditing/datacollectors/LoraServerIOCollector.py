@@ -12,20 +12,11 @@ if os.environ.get("ENVIRONMENT") == "DEV":
 else:
     logging.getLogger().setLevel(logging.INFO)
 
-# This var saves half of the information (from the topic gateway/gw_id/rx) to be persisted
-prev_packet = None
-
-# This dict associates a dev_addr with a dict containing the {dev_eui, app_name and dev_name}
-devices_map = {}
-
 def init_packet_writter_message():
     packet_writter_message = dict()
     packet_writter_message['packet'] = None
     packet_writter_message['messages'] = list()
     return packet_writter_message
-
-# The data sent to the MQTT queue, to be written by the packet writer. It must have at least one MQ message
-packet_writter_message = init_packet_writter_message()
 
 class LoraServerIOCollector:
     
@@ -41,6 +32,12 @@ class LoraServerIOCollector:
         self.password = password
         self.topics = topics
         self.mqtt_client = None
+        # This var saves half of the information (from the topic gateway/gw_id/rx) to be persisted
+        self.prev_packet = None
+        # The data sent to the MQTT queue, to be written by the packet writer. It must have at least one MQ message
+        self.packet_writter_message = init_packet_writter_message()
+        # This dict associates a dev_addr with a dict containing the {dev_eui, app_name and dev_name}
+        self.devices_map = {}
 
     
     def connect(self):
@@ -57,6 +54,10 @@ class LoraServerIOCollector:
             self.mqtt_client.reconnect_delay_set(min_delay=10, max_delay=60)
             self.mqtt_client.connect_async(self.host, self.port, self.TIMEOUT)
 
+            self.mqtt_client.prev_packet = self.prev_packet
+            self.mqtt_client.packet_writter_message = self.packet_writter_message
+            self.mqtt_client.devices_map = self.devices_map
+
             try:
                 self.mqtt_client.loop_start()
             except KeyboardInterrupt:
@@ -72,9 +73,6 @@ class LoraServerIOCollector:
 
 
 def on_message(client, userdata, msg):
-    global prev_packet
-    global devices_map
-    global packet_writter_message
     
     try:
         # print("Topic %s Packet %s"%(msg.topic, msg.payload))
@@ -84,27 +82,27 @@ def on_message(client, userdata, msg):
     except Exception as e:
 
         # First, check if we had a prev_packet. If so, first save it 
-        if prev_packet is not None:
-            packet_writter_message['packet'] = prev_packet
+        if client.prev_packet is not None:
+            client.packet_writter_message['packet'] = client.prev_packet
 
-            save(packet_writter_message, client.data_collector_id)
+            save(client.packet_writter_message, client.data_collector_id)
             
             # Reset vars
-            packet_writter_message = init_packet_writter_message()
-            prev_packet = None
+            client.packet_writter_message = init_packet_writter_message()
+            client.prev_packet = None
 
         # Save this message an topic into MQ
-        packet_writter_message['messages'].append(
+        client.packet_writter_message['messages'].append(
             {
                 'topic':msg.topic,
                 'message':msg.payload.decode("utf-8"),
                 'data_collector_id': client.data_collector_id
             }
         )
-        save(packet_writter_message, client.data_collector_id)
+        save(client.packet_writter_message, client.data_collector_id)
 
         # Reset packet_writter_message
-        packet_writter_message = init_packet_writter_message()
+        client.packet_writter_message = init_packet_writter_message()
 
         logging.debug('[SKIPPED] Topic: {0}. Message received: {1}'.format(msg.topic, msg.payload.decode("utf-8") ))
         return
@@ -115,20 +113,20 @@ def on_message(client, userdata, msg):
         # If it's a Join message, then associate DevEUI with DevAddr
         if msg.topic[-5:]== "/join":
             device_info = { 'dev_eui': mqtt_messsage.get('devEUI', None)}
-            devices_map[mqtt_messsage['devAddr']]= device_info
+            client.devices_map[mqtt_messsage['devAddr']]= device_info
 
             # Save this message an topic into MQ
-            packet_writter_message['messages'].append(
+            client.packet_writter_message['messages'].append(
                 {
                     'topic': msg.topic,
                     'message': msg.payload.decode("utf-8"),
                     'data_collector_id': client.data_collector_id
                 }
             )
-            save(packet_writter_message, client.data_collector_id)
+            save(client.packet_writter_message, client.data_collector_id)
 
             # Reset packet_writter_message
-            packet_writter_message = init_packet_writter_message()
+            client.packet_writter_message = init_packet_writter_message()
 
             logging.debug('Topic: {0}. Message received: {1}'.format(msg.topic, msg.payload.decode("utf-8")))
 
@@ -142,6 +140,22 @@ def on_message(client, userdata, msg):
                 
                 # PHYPayload shouldn't exceed 255 bytes by definition. In DB we support 300 bytes
                 if len(mqtt_messsage['phyPayload']) > 300:
+                    # Save this message an topic into MQ
+                    client.packet_writter_message['messages'].append(
+                        {
+                            'topic': msg.topic,
+                            'message': msg.payload.decode("utf-8"),
+                            'data_collector_id': client.data_collector_id
+                        }
+                    )
+                    save(client.packet_writter_message, client.data_collector_id)
+
+                    # Reset packet_writter_message
+                    client.packet_writter_message = init_packet_writter_message()
+
+                    logging.debug('[SKIPPED] Topic: {0}. Message received: {1}'.format(msg.topic, msg.payload.decode("utf-8")))
+
+
                     return
 
                 # Parse the base64 PHYPayload
@@ -191,28 +205,28 @@ def on_message(client, userdata, msg):
             standard_packet['organization_id'] = client.organization_id
 
             # Save prev_packet in case is not empty
-            if prev_packet is not None:
-                packet_writter_message['packet']= prev_packet
-                save(packet_writter_message, client.data_collector_id)
+            if client.prev_packet is not None:
+                client.packet_writter_message['packet']= client.prev_packet
+                save(client.packet_writter_message, client.data_collector_id)
                 
                 # Reset variables
-                prev_packet= None
-                packet_writter_message = init_packet_writter_message()
+                client.prev_packet= None
+                client.packet_writter_message = init_packet_writter_message()
             
             # Set the dev_eui and other information if available. Otherwise, save packet 
             if 'dev_addr' in standard_packet:
             
-                if standard_packet['dev_addr'] in devices_map:
-                    standard_packet['dev_eui'] = devices_map[standard_packet['dev_addr']]['dev_eui']
-                    if len(devices_map[standard_packet['dev_addr']]) > 1:
-                        standard_packet['app_name'] = devices_map[standard_packet['dev_addr']]['app_name']
-                        standard_packet['dev_name'] = devices_map[standard_packet['dev_addr']]['dev_name']
+                if standard_packet['dev_addr'] in client.devices_map:
+                    standard_packet['dev_eui'] = client.devices_map[standard_packet['dev_addr']]['dev_eui']
+                    if len(client.devices_map[standard_packet['dev_addr']]) > 1:
+                        standard_packet['app_name'] = client.devices_map[standard_packet['dev_addr']]['app_name']
+                        standard_packet['dev_name'] = client.devices_map[standard_packet['dev_addr']]['dev_name']
 
                 else:
                     # Save this packet for now
-                    prev_packet = standard_packet
+                    client.prev_packet = standard_packet
                     # Save the message and topic as well
-                    packet_writter_message['messages'].append(
+                    client.packet_writter_message['messages'].append(
                         {
                             'topic': msg.topic,
                             'message': msg.payload.decode("utf-8"),
@@ -231,9 +245,9 @@ def on_message(client, userdata, msg):
             if search is None:
                 search = re.search('application/.*?/node/(.*)/rx', msg.topic)
             
-            if prev_packet is not None:            
-                standard_packet = prev_packet
-                prev_packet = None
+            if client.prev_packet is not None:            
+                standard_packet = client.prev_packet
+                client.prev_packet = None
 
                 if standard_packet['f_count'] == mqtt_messsage.get('fCnt', None):
                     # Set location if given
@@ -252,13 +266,13 @@ def on_message(client, userdata, msg):
                     
                     # Get dev_eui, app_name and dev_name from message
                     device_info = {'app_name': mqtt_messsage.get('applicationName', None), 'dev_name': mqtt_messsage.get('deviceName', None), 'dev_eui': mqtt_messsage.get('devEUI', None) }
-                    devices_map[standard_packet['dev_addr']]= device_info
+                    client.devices_map[standard_packet['dev_addr']]= device_info
 
                     # Set previous values to current message
-                    standard_packet['dev_eui'] = devices_map[standard_packet['dev_addr']]['dev_eui']
-                    if len(devices_map[standard_packet['dev_addr']]) > 1:
-                        standard_packet['app_name'] = devices_map[standard_packet['dev_addr']]['app_name']
-                        standard_packet['dev_name'] = devices_map[standard_packet['dev_addr']]['dev_name']   
+                    standard_packet['dev_eui'] = client.devices_map[standard_packet['dev_addr']]['dev_eui']
+                    if len(client.devices_map[standard_packet['dev_addr']]) > 1:
+                        standard_packet['app_name'] = client.devices_map[standard_packet['dev_addr']]['app_name']
+                        standard_packet['dev_name'] = client.devices_map[standard_packet['dev_addr']]['dev_name']   
             
             logging.debug('Topic: {0}. Message received: {1}'.format(msg.topic, msg.payload.decode("utf-8")))
 
@@ -266,36 +280,36 @@ def on_message(client, userdata, msg):
             logging.debug('[SKIPPED] Topic: {0}. Message received: {1}'.format(msg.topic, msg.payload.decode("utf-8") ))
 
             # First, check if we had a prev_packet. If so, first save it 
-            if prev_packet is not None and len(standard_packet) == 0:
-                packet_writter_message['packet'] = prev_packet
-                save(packet_writter_message, client.data_collector_id)
+            if client.prev_packet is not None and len(standard_packet) == 0:
+                client.packet_writter_message['packet'] = client.prev_packet
+                save(client.packet_writter_message, client.data_collector_id)
                 
                 # Reset vars
-                packet_writter_message = init_packet_writter_message()
-                prev_packet = None
+                client.packet_writter_message = init_packet_writter_message()
+                client.prev_packet = None
 
             # Save SKIPPED MQ message and topic
-            packet_writter_message['messages'].append(
+            client.packet_writter_message['messages'].append(
                 {
                     'topic': msg.topic,
                     'message': msg.payload.decode("utf-8"),
                     'data_collector_id': client.data_collector_id
                 }
             )
-            save(packet_writter_message, client.data_collector_id)
+            save(client.packet_writter_message, client.data_collector_id)
 
             # Reset packet_writter_message
-            packet_writter_message = init_packet_writter_message()
+            client.packet_writter_message = init_packet_writter_message()
 
             return
 
         # Save packet
-        if prev_packet is None and len(standard_packet) > 0:
+        if client.prev_packet is None and len(standard_packet) > 0:
             # Save packet JSON
-            packet_writter_message['packet'] = standard_packet
+            client.packet_writter_message['packet'] = standard_packet
             
             # Save MQ message and topic
-            packet_writter_message['messages'].append(
+            client.packet_writter_message['messages'].append(
                 {
                     'topic': msg.topic,
                     'message': msg.payload.decode("utf-8"),
@@ -303,7 +317,7 @@ def on_message(client, userdata, msg):
                 }
             )
 
-            save(packet_writter_message, client.data_collector_id)            
+            save(client.packet_writter_message, client.data_collector_id)            
 
             # Reset packet_writter_message obj
             packet_writter_message = init_packet_writter_message()

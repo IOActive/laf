@@ -18,9 +18,6 @@ def init_packet_writter_message():
     packet_writter_message['messages'] = list()
     return packet_writter_message
 
-# The data sent to the MQTT queue, to be written by the packet writer. It must have at least one MQ message
-packet_writter_message = init_packet_writter_message()
-
 class GenericMqttCollector:
     
     TIMEOUT = 60
@@ -35,7 +32,8 @@ class GenericMqttCollector:
         self.password = password
         self.topics = topics
         self.mqtt_client = None
-
+        # The data sent to the MQTT queue, to be written by the packet writer. It must have at least one MQ message
+        self.packet_writter_message = init_packet_writter_message()
     
     def connect(self):
         if self.mqtt_client:
@@ -48,6 +46,9 @@ class GenericMqttCollector:
             self.mqtt_client.topics = self.topics
             self.mqtt_client.on_connect = on_connect
             self.mqtt_client.on_message = on_message
+
+            self.mqtt_client.self.packet_writter_message = self.packet_writter_message
+
             self.mqtt_client.reconnect_delay_set(min_delay=10, max_delay=60)
             self.mqtt_client.connect_async(self.host, self.port, self.TIMEOUT)
 
@@ -66,14 +67,13 @@ class GenericMqttCollector:
 
 
 def on_message(client, userdata, msg):
-    global packet_writter_message
     
     try:
         payload = msg.payload.decode("utf-8") 
         standardPacket = {}
 
         # Save this message an topic into MQ
-        packet_writter_message['messages'].append(
+        client.packet_writter_message['messages'].append(
             {
                 'topic':msg.topic,
                 'message':msg.payload.decode("utf-8"),
@@ -123,14 +123,14 @@ def on_message(client, userdata, msg):
         standardPacket['data_collector_id'] = client.data_collector_id
         standardPacket['organization_id'] = client.organization_id
 
-        packet_writter_message['packet']= standardPacket
+        client.packet_writter_message['packet']= standardPacket
 
-        save(packet_writter_message, client.data_collector_id)
+        save(client.packet_writter_message, client.data_collector_id)
         
         logging.debug('Topic: {0}. Message received: {1}'.format(msg.topic, msg.payload.decode("utf-8") ))
 
         # Reset packet_writter_message
-        packet_writter_message = init_packet_writter_message()
+        client.packet_writter_message = init_packet_writter_message()
 
     except Exception as e:
         logging.error("Error creating Packet in GenericMqttCollector:", e, "Topic: ", msg.topic, "Message: ", msg.payload.decode("utf-8"))  

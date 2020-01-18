@@ -29,7 +29,7 @@ engine = create_engine('postgresql+psycopg2://{user}:{pw}@{url}:{port}/{db}'.for
 
 Base = declarative_base()
 sessionBuilder = sessionmaker()
-sessionBuilder.configure(bind=engine)
+sessionBuilder.configure(bind=engine, autoflush= False)
 session = sessionBuilder()
 
 from auditing.db.Models import AlertType, RowProcessed, rollback, commit

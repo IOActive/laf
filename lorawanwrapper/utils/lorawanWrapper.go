@@ -6,6 +6,9 @@ import "C"
 
 import (
 	"bytes"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -250,6 +253,70 @@ func reverseArray(array []byte) []byte {
 		array[i], array[j] = array[j], array[i]
 	}
 	return array
+}
+
+//export testAppKeysAndNetIdsWithDataPacket
+func testAppKeysAndNetIdsWithDataPacket(appKeysPointer **C.char, keysLen C.int, dataPacketPointer *C.char, netIdsPointer **C.char, netIdsLen C.int) *C.char {
+	possibleKeys := []SessionKeyData{}
+
+	setLogLevel()
+
+	dataPacket, err := base64.StdEncoding.DecodeString(C.GoString(dataPacketPointer))
+	if err != nil {
+		log.Error("error:", err)
+		return nil
+	}
+
+	length := int(keysLen)
+	keysSlice := (*[1 << 30]*C.char)(unsafe.Pointer(appKeysPointer))[:length:length]
+
+	length = int(netIdsLen)
+	netIdsSlice := (*[1 << 30]*C.char)(unsafe.Pointer(netIdsPointer))[:length:length]
+
+	/* Iterate over the keys given in the file */
+	for _, k := range keysSlice {
+		key, err := hex.DecodeString(C.GoString(k))
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, n := range netIdsSlice {
+			netId, err := hex.DecodeString(C.GoString(n))
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			log.Debug(fmt.Sprintf("Key: %s. NetID %s.", C.GoString(k), C.GoString(n)))
+
+			start := time.Now()
+			sesKeysDataArray := bruteforceNonces(key, dataPacket, netId)
+			elapsed := time.Since(start)
+
+			log.Debug("Time elapsed", elapsed)
+
+			for _, s := range sesKeysDataArray {
+				s.AppKey = C.GoString(k)
+				s.NetID = C.GoString(n)
+				log.Debug(fmt.Sprintf("Struct %v", s))
+			}
+			possibleKeys = append(possibleKeys, sesKeysDataArray...)
+		}
+	}
+
+	jsonResult, err := json.Marshal(possibleKeys)
+	if err != nil {
+		log.Error("error:", err)
+		return nil
+	}
+
+	if len(jsonResult) == 0 {
+		log.Debug("json is empty")
+	} else {
+		log.Debug(jsonResult)
+	}
+
+	return C.CString(string(jsonResult))
+
 }
 
 //export testAppKeysWithJoinRequest

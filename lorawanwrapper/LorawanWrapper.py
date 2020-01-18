@@ -44,6 +44,14 @@ def testAppKeysWithJoinRequest(keys, data, dontGenerateKeys):
     lib.testAppKeysWithJoinRequest.restype = c_char_p
     return lib.testAppKeysWithJoinRequest(keysArr, len(keysArr), bytes(data, encoding='utf-8'), generateKeys).decode('utf-8')
 
+def test_app_keys_and_net_ids_with_data_packet(keys, data_packet, net_ids):
+    keys_arr = (c_char_p * len(keys))(*keys)
+    net_ids_array = (c_char_p * len(net_ids))(*net_ids)
+
+    lib.testAppKeysAndNetIdsWithDataPacket.argtypes = [type(keys_arr),  c_int, c_char_p, type(net_ids_array),  c_int]
+    lib.testAppKeysAndNetIdsWithDataPacket.restype = c_char_p
+    return lib.testAppKeysAndNetIdsWithDataPacket(keys_arr, len(keys_arr), bytes(data_packet, encoding='utf-8') ,net_ids_array, len(net_ids_array)).decode('utf-8')
+
 # Takes a JoinAccept and decypts it to retrieve the DevAddr
 def getDevAddr(key, data):
     lib.getDevAddr.argtypes = [c_char_p, c_char_p]

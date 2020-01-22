@@ -66,30 +66,8 @@ def parse_args():
 
     return parser.parse_args()
 
-def fetch_cmd_params(options):
-    global fuzzOutMode
-    fuzzOutMode = options.fuzz_out
-    global key
-    key = options.key
-    global dev_address
-    dev_address = options.devaddr
-    global timeout
-    timeout = options.timeout
-    global repeat
-    repeat = options.repeat
-    global new_counter
-    new_counter= options.fcnt
-    if new_counter is not None or dev_address is not None:
-        if key is None:
-            print("Warning! Since you are modifying the packet, you should provide a network session key to sign it.")
-
 def formatData(data):
     result = ""
-    global fuzzOutMode
-    global key
-    global timeout
-    global new_counter
-    global dev_address
     
     if data is None:
         return result
@@ -101,33 +79,30 @@ def formatData(data):
 
         return result        
 
-def sender(data):
-    localPort = options.lcl_port
-    remoteIp = options.dst_ip
-    remotePort = options.dst_port
+def sender(data, fuzz_out_mode, key, dev_address, timeout, new_counter, local_port, remote_ip, remote_port):
 
     try:
-        remotePort = int(remotePort)
+        remote_port = int(remote_port)
     except:
-        fail('Invalid port number: ' + str(remotePort))
+        fail('Invalid port number: ' + str(remote_port))
         
     try:   
-        global sendSocket
-        sendSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sendSocket.bind(('', localPort))
+        global send_socket
+        send_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        send_socket.bind(('', local_port))
     except:
-        fail('Failed to bind on port ' + str(localPort))
+        fail('Failed to bind on port ' + str(local_port))
     
-    remoteHost = (remoteIp, remotePort)
+    remote_host = (remote_ip, remote_port)
 
-    print('\n'+'Sent to: '+ str(remoteHost))
+    print('\n'+'Sent to: '+ str(remote_host))
     for message in data:
 
         # If given, this will change the address of the packet
         message = DevAddrChanger.changeAddress(message, dev_address)
 
         # If given any fuzz mode, this will return the fuzzed packet. Otherwise, it does nothing
-        message = Fuzzer.fuzz(message,fuzzOutMode)
+        message = Fuzzer.fuzz(message,fuzz_out_mode)
 
         # If given a FCnt, replace in the packet
         message = FCntChanger.changeFCnt(message, new_counter)
@@ -135,48 +110,64 @@ def sender(data):
         # If key given, this will generate a new valid MIC 
         message = MicGenerator.generate_mic(message, key)
 
-        
-
-        sendSocket.sendto(message,remoteHost)
+        send_socket.sendto(message,remote_host)
         logger.debug('{0!r} {1}'.format(message, formatData(message)))
-        receiver()
+        receiver(send_socket, timeout)
 
-def receiver():  
-    global sendSocket   
-    global timeout
+def receiver(send_socket, timeout):  
 
-    sendSocket.settimeout(timeout) 
+    send_socket.settimeout(timeout) 
 
     try:
-        data, source_address = sendSocket.recvfrom(65565)
+        data, source_address = send_socket.recvfrom(65565)
     except socket.timeout as exc:
         print("Timed out receive window")
         return
 
+    send_socket.close()
+
     if not data:
         logger.error('an error ocurred')    
     else:
-        logger.debug('Received UDP. Source {0}. Local port {1}:\n{2!r}{3}'.format(source_address, sendSocket.getsockname()[1], data, formatData(data)))
+        logger.debug('Received UDP. Source {0}. Local port {1}:\n{2!r}{3}'.format(source_address, send_socket.getsockname()[1], data, formatData(data)))
 
-if __name__ == '__main__':
-    options = parse_args()
-    fetch_cmd_params(options)
+def udp_sender(data, repeat, fuzz_out_mode, key, dev_address, timeout, new_counter, local_port, remote_ip, remote_port):
 
-    data = [
-            # Here it can be added as many UDP packets as you want. They must be comma separated and it is recommended to add them between triple quotes.
-            ast.literal_eval(options.data)
-        ]
-    
     while True: 
         try:
-            sender(data)
-            sendSocket.close()
-            
-            # If timeout is None, then send the message once
-            global repeat
+            sender(data, fuzz_out_mode, key, dev_address, timeout, new_counter, local_port, remote_ip, remote_port)
+
             if not repeat:
                 break
             
         except KeyboardInterrupt:
             print("Exit")
             exit(0)
+
+if __name__ == '__main__':
+    options = parse_args()
+
+    fuzz_out_mode = options.fuzz_out
+    key = options.key
+    dev_address = options.devaddr
+    timeout = options.timeout
+    repeat = options.repeat
+    new_counter= options.fcnt
+    
+    local_port = options.lcl_port
+    remote_ip = options.dst_ip
+    remote_port = options.dst_port
+
+    if new_counter is not None or dev_address is not None:
+        if key is None:
+            print("Warning! Since you are modifying the packet, you should provide a network session key to sign it.")
+
+    data = [
+            # Here it can be added as many UDP packets as you want. They must be comma separated and it is recommended to add them between triple quotes.
+            ast.literal_eval(options.data)
+        ]
+
+    udp_sender(data, repeat, fuzz_out_mode, key, dev_address, timeout, new_counter, local_port, remote_ip, remote_port)
+        
+    
+    

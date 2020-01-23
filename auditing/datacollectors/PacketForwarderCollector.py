@@ -53,7 +53,7 @@ def listener(client):
 
         payload, source_address = udp_listener.recvfrom(65565)
 
-        
+        skip_packet=False
         if len(payload)>4:
             try:
                 if chr(payload[4]) == '{':
@@ -131,7 +131,7 @@ def listener(client):
             client.packet_writter_message['messages'].append(
                 {
                     'topic':None,
-                    'message':payload.decode("utf-8"),
+                    'message':payload.decode('latin1').replace('\x00',''),
                     'data_collector_id': client.data_collector_id
                 }
             )

@@ -36,7 +36,9 @@ if __name__ == '__main__':
 
     data_to_send= list()
 
-    gatevice_message= b'{\"tx_mode\": 0, \"freq\": 902.3, \"rfch\": 0, \"modu\": 16, \"datarate\": 16, \"bandwidth\":3, \"codr\": 1, \"ipol\":false, \"size\":'+ str(int(len(option.data)*3/4)).encode('utf-8') +b', \"data\":\"' + option.data.encode('utf-8') + b'\", \"class\": 2}' 
+    data_len= int((len(option.data) * 3) / 4 - option.data.count('=', -2))
+
+    gatevice_message= b'{\"tx_mode\": 0, \"freq\": 902.3, \"rfch\": 0, \"modu\": 16, \"datarate\": 16, \"bandwidth\":3, \"codr\": 1, \"ipol\":false, \"size\":'+ str(data_len).encode('utf-8') +b', \"data\":\"' + option.data.encode('utf-8') + b'\", \"class\": 2}' 
     data_to_send.append(gatevice_message)
     
     UdpSender.udp_sender(data_to_send, option.repeat, None, None, None, option.timeout, None, option.lcl_port, option.dst_ip, option.dst_port)

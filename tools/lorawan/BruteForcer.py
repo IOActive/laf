@@ -4,23 +4,11 @@
 import argparse, base64,sys
 import lorawanwrapper.LorawanWrapper as LorawanWrapper
 
-def validateKeys(jr, ja, keysPath, dont_generate_keys):
-    keys = list()
-    with open(keysPath) as f:
-        for k in f:
-            # Fetch keys in byte format. Needed by ctypes
-            keys.append(bytes(k.rstrip().upper(), encoding='utf-8'))  
-    
-    jr_decoded=base64.b64decode(jr)
-    jr_m_type= jr_decoded[0] & 0xE0
+keys=list()
 
-    ja_decoded=base64.b64decode(ja)
-    ja_m_type= ja_decoded[0] & 0xE0
+def bruteforce_accept_request(ja, jr, dont_generate_keys):
+    global keys
 
-    if jr_m_type != 0x00 or ja_m_type != 0x20:
-        print( "\nMake sure you provided a valid JoinRequest and JoinAccept \n")
-        return
-   
     jr_result = LorawanWrapper.testAppKeysWithJoinRequest(keys, jr, dont_generate_keys)  
 
     if len(jr_result) > 0:
@@ -36,6 +24,75 @@ def validateKeys(jr, ja, keysPath, dont_generate_keys):
             print ("\n**** Key found: %s **** \n"%(ja_result.split()[0]))
 
 
+def bruteforce_two_join_requests(jr1, jr2, dont_generate_keys):
+    global keys
+
+    jr_1_result = LorawanWrapper.testAppKeysWithJoinRequest(keys, jr1, dont_generate_keys)  
+
+    if len(jr_1_result) > 0:
+        
+        # Convert valid keys into bytes
+        valid_keys= list()
+        for valid_key in jr_1_result.split():
+            valid_keys.append(bytes(valid_key.upper(), encoding='utf-8'))
+
+        jr_2_result = LorawanWrapper.testAppKeysWithJoinRequest(valid_keys, jr2, dontGenerateKeys= True)
+
+        if len(jr_2_result) > 0:
+            print ("\n**** Key found: %s **** \n"%(jr_2_result.split()[0]))
+
+def bruteforce_two_join_accepts(ja1, ja2, dont_generate_keys):
+    global keys
+    
+    ja1_result = LorawanWrapper.testAppKeysWithJoinAccept(keys, ja1, dont_generate_keys)  
+
+    if len(ja1_result) > 0:
+        
+        # Convert valid keys into bytes
+        valid_keys= list()
+        for valid_key in jr_result.split():
+            valid_keys.append(bytes(valid_key.upper(), encoding='utf-8'))
+
+        ja_2_result = LorawanWrapper.testAppKeysWithJoinAccept(valid_keys, ja2, dontGenerateKeys= True)
+
+        if len(ja_2_result) > 0:
+            print ("\n**** Key found: %s **** \n"%(ja_2_result.split()[0]))
+
+def validateKeys(first, second, keysPath, dont_generate_keys):
+    global keys
+    with open(keysPath) as f:
+        for k in f:
+            # Fetch keys in byte format. Needed by ctypes
+            keys.append(bytes(k.rstrip().upper(), encoding='utf-8'))  
+    
+    first_decoded=base64.b64decode(first)
+    first_m_type= first_decoded[0] & 0xE0
+
+    second_decoded=base64.b64decode(second)
+    second_m_type= second_decoded[0] & 0xE0
+
+    if first_m_type == 0x00:
+        if second_m_type == 0x00:
+            bruteforce_two_join_requests(first, second, dont_generate_keys)
+        elif second_m_type == 0x20:
+            bruteforce_accept_request(second, first, dont_generate_keys)
+        else:
+            error_message(packet_order='second')
+    elif first_m_type == 0x20:
+        if second_m_type == 0x00:
+            bruteforce_accept_request(first, second, dont_generate_keys)
+        elif second_m_type == 0x20:
+            bruteforce_two_join_accepts(first, second, dont_generate_keys)
+        else:
+            error_message(packet_order='second')
+    else:
+        error_message(packet_order='first')
+
+
+def error_message(packet_order):
+    print( "\nMake sure the {0} packet provided is a valid JoinRequest or JoinAccept \n".format(packet_order))
+
+
 if __name__ == '__main__':
 
     try:
@@ -44,13 +101,13 @@ if __name__ == '__main__':
         print ("Copyright (c) 2019 IOActive Inc.  All rights reserved.")
         print ("*****************************************************\n")
 
-        parser = argparse.ArgumentParser(description='This script receives a JoinAccept or JoinRequest in Base64 and tries to decrypt its AppKey with a set of possible keys which can be provided in a file or can be generated on the fly.')
+        parser = argparse.ArgumentParser(description='This script receives 2 JoinAccepts, 2 JoinRequests or a pair or JoinRequest/JoinAccept in Base64 and tries to decrypt its AppKey with a set of possible keys which can be provided in a file or can be generated on the fly.')
         requiredGroup = parser.add_argument_group('Required arguments')
-        requiredGroup.add_argument("-a", "--accept",
-                                    help= "Join Accept in Base64 format to be bruteforced. eg. -a IHvAP4MXo5Qo6tdV+Yfk08o=",
+        requiredGroup.add_argument("-f", "--first",
+                                    help= "Packet in Base64 format (JoinRequest/JoinAccept) to be bruteforced. eg. -f IHvAP4MXo5Qo6tdV+Yfk08o=",
                                     required = True)
-        requiredGroup.add_argument("-r", "--request",
-                                    help= "Join Request in Base64 format to be bruteforced. eg. -r AMQAAAAAhQAAAgAAAAAAAADcYldcgbc=",
+        requiredGroup.add_argument("-s", "-second", "--second",
+                                    help= "Packet in Base64 format (JoinRequest/JoinAccept) to be bruteforced. eg. -s AMQAAAAAhQAAAgAAAAAAAADcYldcgbc=",
                                     required = True)
         parser.add_argument("-k", "--keys",
                             help = "File containing a list of keys, separated by \\n. Will use /auditing/analyzers/bruteForcer/keys.txt by default",
@@ -62,7 +119,7 @@ if __name__ == '__main__':
 
         options = parser.parse_args()
 
-        validateKeys(options.request, options.accept, options.keys, options.dont_generate)
+        validateKeys(options.first, options.second, options.keys, options.dont_generate)
     
     except KeyboardInterrupt:
         exit(0)

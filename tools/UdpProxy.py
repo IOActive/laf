@@ -79,37 +79,6 @@ def parse_args():
 
     return parser.parse_args()
 
-def setConsoleOptions():
-    global fuzzInMode
-    fuzzInMode = options.fuzz_in
-    global fuzzOutMode
-    fuzzOutMode = options.fuzz_out
-    global key
-    key = options.key
-    
-    global logIntoFile
-    if options.path is not None:
-        logIntoFile = True
-        global path
-        path=options.path
-    else:
-        logIntoFile = False
-    
-    global logIntoConsole
-    logIntoConsole = not options.no_log
-    global parsePHYPayload
-    parsePHYPayload = not options.no_parse
-
-    if parsePHYPayload:
-        import lorawanwrapper.LorawanWrapper  as LorawanWrapper
-
-    global collector_address
-    if options.collector_port:
-        collector_address = (options.collector_ip, options.collector_port)  
-    elif options.collector_ip != '':
-        print('You must provide the data collector port.')
-    else:
-        collector_address=None
 
 def fail(reason):
 	sys.stderr.write(reason + '\n')
@@ -321,9 +290,39 @@ def collectData(lclPort, destIp, destPort, path):
 
 
 if __name__ == '__main__':
-    global options
     options = parse_args()
-    setConsoleOptions()
+    
+    global fuzzInMode
+    fuzzInMode = options.fuzz_in
+    global fuzzOutMode
+    fuzzOutMode = options.fuzz_out
+    global key
+    key = options.key
+    
+    global logIntoFile
+    if options.path is not None:
+        logIntoFile = True
+        global path
+        path=options.path
+    else:
+        logIntoFile = False
+    
+    global logIntoConsole
+    logIntoConsole = not options.no_log
+    global parsePHYPayload
+    parsePHYPayload = not options.no_parse
+
+    if parsePHYPayload:
+        print("importing lorawanwrapper")
+        import lorawanwrapper.LorawanWrapper  as LorawanWrapper
+
+    global collector_address
+    if options.collector_port:
+        collector_address = (options.collector_ip, options.collector_port)  
+    elif options.collector_ip != '':
+        print('You must provide the data collector port.')
+    else:
+        collector_address=None
     
     if logIntoFile:
         fileLoggin.init(path)

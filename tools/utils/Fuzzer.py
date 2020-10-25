@@ -24,7 +24,9 @@ def fuzz(data, fuzzModes):
         elif mode == 8:
             data = fuzzFPort(data)
         elif mode == 9:
-            data = fuzzDevNonce(data)    
+            data = fuzzDevNonce(data)
+        elif mode == 10:
+            data = fuzzDevEui(data)
         else:   
             print("Fuzzing mode incorrect")
     return data
@@ -36,7 +38,7 @@ def fuzzPhyPayload(udp):
     if search is not None:
         data=search.group(2)
         #data = insertRandomData(data,random.randrange(1,len(data)), random.randrange(1,100))
-        data = changeByte(data,random.randrange(1,len(data)), chr(random.randrange(0,256)))
+        data = changeByte(data,random.randrange(1,len(data)), random.randrange(0,256))
         return search.group(1) + b'"data":"' + data + b'"' + search.group(3)
     else:
         return udp
@@ -48,7 +50,7 @@ def fuzzDecodedPHYPayload(udp):
 
     if search is not None:
         decodedData=base64.b64decode(search.group(2))
-        decodedData=changeByte(decodedData, random.randrange(1,len(decodedData)), chr(random.randrange(0,256)) )
+        decodedData=changeByte(decodedData, random.randrange(1,len(decodedData)), random.randrange(0,256))
         #decodedData=repeatByte(decodedData, random.randrange(1,len(decodedData)), random.randrange(0,256) )
         encodedData = base64.b64encode(decodedData)
         return search.group(1) + b'"data":"' + encodedData + b'"' + search.group(3)
@@ -72,7 +74,7 @@ def fuzzMIC(udp):
         decodedData=base64.b64decode(search.group(2))
         posToFuzz= len(decodedData) - random.randrange(0,4) 
         print ("Fuzzing MIC position %d out of %d"%(posToFuzz, len(decodedData)))
-        decodedData= changeByte(decodedData, posToFuzz,chr(random.randrange(0,256)) )
+        decodedData= changeByte(decodedData, posToFuzz, random.randrange(0,256))
         encodedData = base64.b64encode(decodedData)
         return search.group(1) + b'"data":"' + encodedData + b'"' + search.group(3)
     else:
@@ -85,7 +87,7 @@ def fuzzFCnt(udp):
     if search is not None:
         decodedData=base64.b64decode(search.group(2))
         counter = decodedData[6:8]
-        decodedData = changeByte(decodedData, 6 + random.randrange(0,2) +1, chr(random.randrange(0,256)))
+        decodedData = changeByte(decodedData, 6 + random.randrange(0,2) +1, random.randrange(0,256))
         #decodedData = decodedData[:6] + chr(0) + chr(0) + decodedData[8:]
         fuzzedCounter = decodedData[6:8]
         print ("Old FCnt %d, New FCnt %d"%(struct.unpack('<H',counter)[0], struct.unpack('<H',fuzzedCounter)[0]))
@@ -103,7 +105,7 @@ def fuzzFRMPayload(udp):
         decodedData=base64.b64decode(search.group(2))
         #When FRMPayload is present, FPort is present. This function considers an empty FOpts is empty, then MHDR+FHDR+FPort is 9 bytes.
         #So, MACPayload is 9 bytes (MHDR+FHDR+FPort) + FRMPayload + 4 bytes (MIC)
-        decodedData = changeByte(decodedData, random.randrange(10,len(decodedData)-4), chr(random.randrange(0,256)))
+        decodedData = changeByte(decodedData, random.randrange(10,len(decodedData)-4), random.randrange(0,256))
         encodedData = base64.b64encode(decodedData)
         return search.group(1) + b'"data":"' + encodedData + b'"' + search.group(3)
     else:
@@ -150,7 +152,7 @@ def fuzzFPort(udp):
 
     if search is not None:
         decodedData=base64.b64decode(search.group(2))
-        decodedData = changeByte(decodedData, 8 + 1, chr(random.randrange(0,256)))
+        decodedData = changeByte(decodedData, 8 + 1, random.randrange(0,256))
         encodedData = base64.b64encode(decodedData)
         return search.group(1) + b'"data":"' + encodedData + b'"' + search.group(3)
     else:
@@ -162,18 +164,31 @@ def fuzzDevNonce(udp):
 
     if search is not None:
         decodedData=base64.b64decode(search.group(2))
-        decodedData = changeByte(decodedData, 16 + 1 + random.randrange(0,2), chr(random.randrange(0,256)))
-        encodedData = base64.b64encode(decodedData)
-        return search.group(1) + b'"data":"' + encodedData + b'"' + search.group(3)
-    else:
-        return udp
+        m_type= decodedData[0] & 0xE0
+        if m_type == 0x00: # JoinRequest
+            decodedData = changeByte(decodedData, 16 + 1 + random.randrange(0,2), random.randrange(0,256))
+            encodedData = base64.b64encode(decodedData)
+            return search.group(1) + b'"data":"' + encodedData + b'"' + search.group(3)
+    return udp
+
+# Option 10 
+def fuzzDevEui(udp):
+    search = re.search(b'(.*)"data"\s?:\s?"(.*?)"(.*)', udp)
+    if search is not None:
+        decodedData=base64.b64decode(search.group(2))
+        m_type= decodedData[0] & 0xE0
+        if m_type == 0x00: # JoinRequest
+            decodedData = changeByte(decodedData, 8 + 1 + random.randrange(0,8), random.randrange(0,256))
+            encodedData = base64.b64encode(decodedData)
+            return search.group(1) + b'"data":"' + encodedData + b'"' + search.group(3)
+    return udp
 
 #Aux functions
 def changeByte(buf, pos, val):
     
     print ("%s:\nReplacing byte offset=%d, old value=%r, new=%r"%(str(datetime.datetime.now()), pos-1, buf[pos-1], val))
     
-    buf = buf[:pos-1] + bytes(val, encoding='utf-8') + buf[pos:]
+    buf = buf[:pos-1] + bytes([val]) + buf[pos:]
 
     return buf
 

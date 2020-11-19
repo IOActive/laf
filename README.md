@@ -475,6 +475,7 @@ This script receives UDP packets from the UDP proxy in the gateway
 packet_forwarder format and persists them.
 
 Optional arguments:
+
     -h, --help            show this help message and exit
     --collector-id COLLECTOR_ID
                             The ID of the dataCollector. This ID will be
@@ -484,9 +485,10 @@ Optional arguments:
                         associated to the packets saved into DB. eg. --id 1
 
 Required arguments:
-  -n NAME, --name NAME  Unique string identifier of the Data Collector. eg.
+
+    -n NAME, --name NAME  Unique string identifier of the Data Collector. eg.
                         --name semtech_collector
-  -p PORT, --port PORT  Port where to listen for UDP packets. --port 1702.
+    -p PORT, --port PORT  Port where to listen for UDP packets. --port 1702.
 
 Example:
 

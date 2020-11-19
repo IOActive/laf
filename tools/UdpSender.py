@@ -120,16 +120,14 @@ def receiver(send_socket, timeout):
 
     try:
         data, source_address = send_socket.recvfrom(65565)
+        if not data:
+            logger.error('an error ocurred')
+        else:
+            logger.debug('Received UDP. Source {0}. Local port {1}:\n{2!r}{3}'.format(source_address, send_socket.getsockname()[1], data, formatData(data)))
     except socket.timeout as exc:
         print("Timed out receive window")
-        return
-
-    send_socket.close()
-
-    if not data:
-        logger.error('an error ocurred')    
-    else:
-        logger.debug('Received UDP. Source {0}. Local port {1}:\n{2!r}{3}'.format(source_address, send_socket.getsockname()[1], data, formatData(data)))
+    finally:
+        send_socket.close()
 
 def udp_sender(data, repeat, fuzz_out_mode, key, dev_address, timeout, new_counter, local_port, remote_ip, remote_port):
 

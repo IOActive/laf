@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 	"unsafe"
+	"math"
 
 	. "github.com/matiassequeira/lorawan"
 	log "github.com/sirupsen/logrus"
@@ -300,7 +301,8 @@ func testAppKeysWithJoinRequest(appKeysPointer **C.char, keysLen C.int, joinRequ
 	Test keys given in keys file
 	********************************************************************/
 	length := int(keysLen)
-	tmpslice := (*[1 << 30]*C.char)(unsafe.Pointer(appKeysPointer))[:length:length]
+	var temp *C.char
+	tmpslice := (*[(math.MaxInt32 -1)/unsafe.Sizeof(temp)]*C.char)(unsafe.Pointer(appKeysPointer))[:length:length]
 	for _, s := range tmpslice {
 		element := C.GoString(s)
 
@@ -523,7 +525,8 @@ func testAppKeysWithJoinAccept(appKeysPointer **C.char, keysLen C.int, joinAccep
 	}
 
 	length := int(keysLen)
-	tmpslice := (*[1 << 30]*C.char)(unsafe.Pointer(appKeysPointer))[:length:length]
+	var temp *C.char
+	tmpslice := (*[(math.MaxInt32 - 1)/unsafe.Sizeof(temp)]*C.char)(unsafe.Pointer(appKeysPointer))[:length:length]
 	for _, s := range tmpslice {
 		element := C.GoString(s)
 

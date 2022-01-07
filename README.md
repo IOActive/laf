@@ -77,12 +77,10 @@ These instructions will get you a copy of the project and its dependencies in yo
     3. Decompress the installer: `sudo tar -C /usr/local -xvzf YOUR_GOLANG_FILE`
     4. Export to PATH: `export PATH=$PATH:/usr/local/go/bin`
     5. Set GOPATH: `export GOPATH="$HOME/go"`
-6. Download go dependencies:
-    1. `go get github.com/tidwall/sjson && go get github.com/tidwall/gjson && go get github.com/matiassequeira/lorawan && go get github.com/pkg/errors && go get github.com/sirupsen/logrus && go get golang.org/x/crypto/sha3`
-7. Compile go library:
+6. Compile go library:
     1. `cd laf/lorawanwrapper/utils`
     2. `go build -o lorawanWrapper.so -buildmode=c-shared jsonUnmarshaler.go lorawanWrapper.go micGenerator.go sessionKeysGenerator.go hashGenerator.go`
-8. Depending on which DB you'd like to use:
+7. Depending on which DB you'd like to use:
 
     a. PostreSQL: Follow instructions 'Install LAF using Docker' until 3rd step.
 
@@ -475,6 +473,7 @@ This script receives UDP packets from the UDP proxy in the gateway
 packet_forwarder format and persists them.
 
 Optional arguments:
+
     -h, --help            show this help message and exit
     --collector-id COLLECTOR_ID
                             The ID of the dataCollector. This ID will be
@@ -484,9 +483,10 @@ Optional arguments:
                         associated to the packets saved into DB. eg. --id 1
 
 Required arguments:
-  -n NAME, --name NAME  Unique string identifier of the Data Collector. eg.
+
+    -n NAME, --name NAME  Unique string identifier of the Data Collector. eg.
                         --name semtech_collector
-  -p PORT, --port PORT  Port where to listen for UDP packets. --port 1702.
+    -p PORT, --port PORT  Port where to listen for UDP packets. --port 1702.
 
 Example:
 
